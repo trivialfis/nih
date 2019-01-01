@@ -1,0 +1,5 @@
+@PACKAGE_INIT@
+
+if(NOT TARGET nih::nih)
+  include(${CMAKE_CURRENT_LIST_DIR}/nih-targets.cmake)
+endif()
