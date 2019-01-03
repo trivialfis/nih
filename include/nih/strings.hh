@@ -68,7 +68,7 @@ std::string strip(std::string const& str, Functor func) {
   return result;
 }
 
-bool isSpace(char c) {
+inline bool isSpace(char c) {
   if (c == ' ' || c == '\n' || c == '\t') {
     return true;
   }
