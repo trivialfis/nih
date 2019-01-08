@@ -20,6 +20,7 @@ target_include_directories(nih
 include(GNUInstallDirs)
 install(FILES
   "${PROJECT_SOURCE_DIR}/include/nih/strings.hh"
+  "${PROJECT_SOURCE_DIR}/include/nih/math.hh"
   DESTINATION
   include/nih/)
 
