@@ -1,14 +1,17 @@
-#include <nih/strings.hh>
+#include "nih/strings.hh"
+#include "nih/primitives.hh"
 #include <gtest/gtest.h>
 
 #include <string>
+
+namespace nih {
 
 template<typename T>
 struct IsDouble {
   static bool constexpr kValue = false;
 };
 template <>
-struct IsDouble<double> {
+struct IsDouble<NihDouble> {
   static bool constexpr kValue = true;
 };
 
@@ -17,7 +20,7 @@ struct IsFloat {
   static bool constexpr kValue = false;
 };
 template <>
-struct IsFloat<float> {
+struct IsFloat<NihFloat> {
   static bool constexpr kValue = true;
 };
 
@@ -26,23 +29,21 @@ struct IsInt {
   static bool constexpr kValue = false;
 };
 template <>
-struct IsInt<int> {
+struct IsInt<NihInt> {
   static bool constexpr kValue = true;
 };
 
-namespace nih {
-
 TEST(Strings, StoN) {
   constexpr double kEps = 1e-7;
-  auto f = str2n<float>("1.1");
+  auto f = str2n<NihFloat>("1.1");
   static_assert(IsFloat<decltype(f)>::kValue, "Return type must be float.");
   ASSERT_NEAR(f, 1.1, kEps);
 
-  auto d = str2n<double>("1.1");
+  auto d = str2n<NihDouble>("1.1");
   static_assert(IsDouble<decltype(d)>::kValue, "Return type must be double.");
   ASSERT_NEAR(d, 1.1, kEps);
 
-  auto i = str2n<int>("1");
+  auto i = str2n<NihInt>("1");
   static_assert(IsInt<decltype(i)>::kValue, "Return type must be int.");
   ASSERT_EQ(i, 1);
 }

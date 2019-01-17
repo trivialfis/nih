@@ -22,14 +22,16 @@
 #include <type_traits>
 #include <utility>
 
+#include "nih/primitives.hh"
+
 namespace nih {
 namespace math {
 
-inline float beta(float x, float y) {
+inline NihFloat beta(NihFloat x, NihFloat y) {
   return std::tgamma(x) * std::tgamma(y) / std::tgamma(x + y);
 }
 
-inline float lbeta(float x, float y) {
+inline NihFloat lbeta(NihFloat x, NihFloat y) {
   return std::lgamma(x) + std::lgamma(y) - std::lgamma(x + y);
 }
 

@@ -21,13 +21,15 @@
 #include <vector>
 #include <string>
 
+#include "nih/primitives.hh"
+
 namespace nih {
 
 template <typename Functor>
 void split(std::vector<std::string>& result, std::string const& input,
            Functor func) {
-  size_t last_pos = 0;
-  size_t len = 0;
+  NihInt last_pos = 0;
+  NihInt len = 0;
   for (auto c : input) {
     if (!func(c)) {
       len++;
@@ -44,7 +46,7 @@ void split(std::vector<std::string>& result, std::string const& input,
 
 template <typename Functor>
 std::string strip(std::string const& str, Functor func) {
-  size_t prefix_count = 0;
+  NihInt prefix_count = 0;
   for (char c : str) {
     if (func(c)) {
       prefix_count ++;
@@ -52,7 +54,7 @@ std::string strip(std::string const& str, Functor func) {
       break;
     }
   }
-  size_t postfix_count = 0;
+  NihInt postfix_count = 0;
   for (auto riter = str.rbegin(); riter != str.rend(); ++riter) {
     if (func(*riter)) {
       postfix_count ++;
@@ -63,7 +65,7 @@ std::string strip(std::string const& str, Functor func) {
   if (prefix_count == postfix_count) {
     return std::string{};
   }
-  size_t length = str.length() - postfix_count - prefix_count;
+  NihInt length = str.length() - postfix_count - prefix_count;
   std::string result = str.substr(prefix_count, length);
   return result;
 }
@@ -83,18 +85,18 @@ template<typename T>
 T str2n(std::string const& s);
 
 template <>
-inline float str2n<float>(std::string const& s) {
+inline NihFloat str2n<NihFloat>(std::string const& s) {
   return std::stod(s);
 }
 
 template <>
-inline double str2n<double>(std::string const& s) {
+inline NihDouble str2n<NihDouble>(std::string const& s) {
   return std::stod(s);
 }
 
 template <>
-inline int str2n<int>(std::string const& s) {
-  return std::stoi(s);
+inline NihInt str2n<NihInt>(std::string const& s) {
+  return static_cast<NihInt>(std::stoi(s));
 }
 
 }  // namespace nih

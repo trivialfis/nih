@@ -21,6 +21,8 @@ include(GNUInstallDirs)
 install(FILES
   "${PROJECT_SOURCE_DIR}/include/nih/strings.hh"
   "${PROJECT_SOURCE_DIR}/include/nih/math.hh"
+  "${PROJECT_SOURCE_DIR}/include/nih/range.hh"
+  "${PROJECT_SOURCE_DIR}/include/nih/primitives.hh"
   DESTINATION
   include/nih/)
 

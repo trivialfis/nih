@@ -1,11 +1,13 @@
 #include <gtest/gtest.h>
-#include <nih/math.hh>
+
+#include "nih/primitives.hh"
+#include "nih/math.hh"
 
 namespace nih {
 namespace math {
 
 TEST(Math, Beta) {
-  float constexpr kEps = 1e-6;
+  NihFloat constexpr kEps = 1e-6;
   ASSERT_NEAR(beta(1, 2), 0.5, kEps);
   ASSERT_NEAR(beta(3, 2), 0.083333333, kEps);
 
