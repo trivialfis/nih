@@ -32,7 +32,6 @@ class JsonWriter {
   }
   void endIndent() {
     n_spaces_ -= kIndentSize;
-    CHECK_GE(n_spaces_, 0);
   }
 
   void write(std::string str) {
@@ -92,14 +91,14 @@ class JsonReader {
     return ch;
   }
 
-  char GetNextNonSpaceChar() {
+  char getNextNonSpaceChar() {
     skipSpaces();
     return getNextChar();
   }
 
-  char GetChar(char c) {
-    char result = GetNextNonSpaceChar();
-    if (result != c) { Expect(c); }
+  char getChar(char c) {
+    char result = getNextNonSpaceChar();
+    if (result != c) { expect(c); }
     return result;
   }
 
@@ -122,7 +121,7 @@ class JsonReader {
   }
 
   // Report expected character
-  void Expect(char c) {
+  void expect(char c) {
     std::string msg = "Expecting: \"";
     msg += std::to_string(c)
            + "\", got: \"" + raw_str_[cursor_.pos()-1] + "\"\n"; // FIXME
@@ -196,7 +195,7 @@ std::string Value::typeStr() const {
 
 // Only used for keeping old compilers happy about non-reaching return
 // statement.
-Json& DummyJsonObject () {
+Json& dummyJsonObject () {
   static Json obj;
   return obj;
 }
@@ -213,17 +212,17 @@ Json& JsonObject::operator[](int ind) {
   throw std::runtime_error(
       "Object of type " +
       Value::typeStr() + " can not be indexed by Integer.");
-  return DummyJsonObject();
+  return dummyJsonObject();
 }
 
 bool JsonObject::operator==(Value const& rhs) const {
   if(!IsA<JsonObject>(&rhs)) { return false; }
-  return object_ == Cast<JsonObject const>(&rhs)->GetObject();
+  return object_ == Cast<JsonObject const>(&rhs)->getObject();
 }
 
 Value & JsonObject::operator=(Value const &rhs) {
   JsonObject const* casted = Cast<JsonObject const>(&rhs);
-  object_ = casted->GetObject();
+  object_ = casted->getObject();
   return *this;
 }
 
@@ -255,7 +254,7 @@ Json& JsonString::operator[](std::string const & key) {
   throw std::runtime_error(
       "Object of type " +
       Value::typeStr() + " can not be indexed by string.");
-  return DummyJsonObject();
+  return dummyJsonObject();
 }
 
 Json& JsonString::operator[](int ind) {
@@ -263,7 +262,7 @@ Json& JsonString::operator[](int ind) {
       "Object of type " +
       Value::typeStr() + " can not be indexed by Integer, " +
       "please try obtaining std::string first.");
-  return DummyJsonObject();
+  return dummyJsonObject();
 }
 
 bool JsonString::operator==(Value const& rhs) const {
@@ -316,7 +315,7 @@ Json& JsonArray::operator[](std::string const & key) {
   throw std::runtime_error(
       "Object of type " +
       Value::typeStr() + " can not be indexed by string.");
-  return DummyJsonObject();
+  return dummyJsonObject();
 }
 
 Json& JsonArray::operator[](int ind) {
@@ -351,29 +350,29 @@ Json& JsonNumber::operator[](std::string const & key) {
   throw std::runtime_error(
       "Object of type " +
       Value::typeStr() + " can not be indexed by string.");
-  return DummyJsonObject();
+  return dummyJsonObject();
 }
 
 Json& JsonNumber::operator[](int ind) {
   throw std::runtime_error(
       "Object of type " +
       Value::typeStr() + " can not be indexed by Integer.");
-  return DummyJsonObject();
+  return dummyJsonObject();
 }
 
 bool JsonNumber::operator==(Value const& rhs) const {
   if(!IsA<JsonNumber>(&rhs)) { return false; }
-  return number_ == Cast<JsonNumber const>(&rhs)->GetNumber();
+  return number_ == Cast<JsonNumber const>(&rhs)->getNumber();
 }
 
 Value & JsonNumber::operator=(Value const &rhs) {
   JsonNumber const* casted = Cast<JsonNumber const>(&rhs);
-  number_ = casted->GetNumber();
+  number_ = casted->getNumber();
   return *this;
 }
 
 void JsonNumber::save(JsonWriter* writer) {
-  writer->write(std::to_string(this->GetNumber()));
+  writer->write(std::to_string(this->getNumber()));
 }
 
 // Json Null
@@ -381,14 +380,14 @@ Json& JsonNull::operator[](std::string const & key) {
   throw std::runtime_error(
       "Object of type " +
       Value::typeStr() + " can not be indexed by string.");
-  return DummyJsonObject();
+  return dummyJsonObject();
 }
 
 Json& JsonNull::operator[](int ind) {
   throw std::runtime_error(
       "Object of type " +
       Value::typeStr() + " can not be indexed by Integer.");
-  return DummyJsonObject();
+  return dummyJsonObject();
 }
 
 bool JsonNull::operator==(Value const& rhs) const {
@@ -410,24 +409,24 @@ Json& JsonBoolean::operator[](std::string const & key) {
   throw std::runtime_error(
       "Object of type " +
       Value::typeStr() + " can not be indexed by string.");
-  return DummyJsonObject();
+  return dummyJsonObject();
 }
 
 Json& JsonBoolean::operator[](int ind) {
   throw std::runtime_error(
       "Object of type " +
       Value::typeStr() + " can not be indexed by Integer.");
-  return DummyJsonObject();
+  return dummyJsonObject();
 }
 
 bool JsonBoolean::operator==(Value const& rhs) const {
   if(!IsA<JsonBoolean>(&rhs)) { return false; }
-  return boolean_ == Cast<JsonBoolean const>(&rhs)->GetBoolean();
+  return boolean_ == Cast<JsonBoolean const>(&rhs)->getBoolean();
 }
 
 Value & JsonBoolean::operator=(Value const &rhs) {
   JsonBoolean const* casted = Cast<JsonBoolean const>(&rhs);
-  boolean_ = casted->GetBoolean();
+  boolean_ = casted->getBoolean();
   return *this;
 }
 
@@ -452,7 +451,7 @@ void JsonReader::skipSpaces() {
 }
 
 Json JsonReader::parseString() {
-  char ch = GetChar('\"');
+  char ch = getChar('\"');
   std::ostringstream output;
   std::string str;
   while (true) {
@@ -476,7 +475,7 @@ Json JsonReader::parseString() {
       str += ch;
     }
     if (ch == EOF || ch == '\r' || ch == '\n') {
-      Expect('\"');
+      expect('\"');
     }
   }
   return Json(std::move(str));
@@ -485,18 +484,18 @@ Json JsonReader::parseString() {
 Json JsonReader::parseArray() {
   std::vector<Json> data;
 
-  char ch = GetChar('[');
+  char ch = getChar('[');
   while (true) {
     if (peekNextChar() == ']') {
-      GetChar(']');
+      getChar(']');
       return Json(std::move(data));
     }
     auto obj = parse();
     data.push_back(obj);
-    ch = GetNextNonSpaceChar();
+    ch = getNextNonSpaceChar();
     if (ch == ']') break;
     if (ch != ',') {
-      Expect(',');
+      expect(',');
     }
   }
 
@@ -504,7 +503,7 @@ Json JsonReader::parseArray() {
 }
 
 Json JsonReader::parseObject() {
-  char ch = GetChar('{');
+  char ch = getChar('{');
 
   std::map<std::string, Json> data;
   if (ch == '}') return Json(std::move(data));
@@ -513,24 +512,24 @@ Json JsonReader::parseObject() {
     skipSpaces();
     ch = peekNextChar();
     if (ch != '"') {
-      Expect('"');
+      expect('"');
     }
     Json key = parseString();
 
-    ch = GetNextNonSpaceChar();
+    ch = getNextNonSpaceChar();
 
     if (ch != ':') {
-      Expect(':');
+      expect(':');
     }
 
     Json value {parse()};
     data[Cast<JsonString>(&(key.getValue()))->getString()] = std::move(value);
 
-    ch = GetNextNonSpaceChar();
+    ch = getNextNonSpaceChar();
 
     if (ch == '}') break;
     if (ch != ',') {
-      Expect(',');
+      expect(',');
     }
   }
 
@@ -549,14 +548,14 @@ Json JsonReader::parseNumber() {
 
 Json JsonReader::parseBoolean() {
   bool result = false;
-  char ch = GetNextNonSpaceChar();
+  char ch = getNextNonSpaceChar();
   std::string const t_value = u8"true";
   std::string const f_value = u8"false";
   std::string buffer;
 
   if (ch == 't') {
     for (size_t i = 0; i < 3; ++i) {
-      buffer.push_back(GetNextNonSpaceChar());
+      buffer.push_back(getNextNonSpaceChar());
     }
     if (buffer != u8"rue") {
       error("Expecting boolean value \"true\".");
@@ -564,7 +563,7 @@ Json JsonReader::parseBoolean() {
     result = true;
   } else {
     for (size_t i = 0; i < 4; ++i) {
-      buffer.push_back(GetNextNonSpaceChar());
+      buffer.push_back(getNextNonSpaceChar());
     }
     if (buffer != u8"alse") {
       error("Expecting boolean value \"false\".");

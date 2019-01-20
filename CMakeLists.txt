@@ -10,21 +10,21 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
   message(FATAL "In-source builds not supported.")
 endif()
 
-add_library(nih "${PROJECT_SOURCE_DIR}/src/json.cc")
+add_library(nih SHARED "${CMAKE_CURRENT_LIST_DIR}/src/json.cc")
 add_library(nih::nih ALIAS nih)
 target_include_directories(nih
   PRIVATE
-  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/>
   PUBLIC
   $<INSTALL_INTERFACE:include/>)
 
 include(GNUInstallDirs)
 install(FILES
-  "${PROJECT_SOURCE_DIR}/include/nih/strings.hh"
-  "${PROJECT_SOURCE_DIR}/include/nih/math.hh"
-  "${PROJECT_SOURCE_DIR}/include/nih/range.hh"
-  "${PROJECT_SOURCE_DIR}/include/nih/primitives.hh"
-  "${PROJECT_SOURCE_DIR}/include/nih/json.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/strings.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/math.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/range.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/primitives.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/json.hh"
   DESTINATION
   include/nih/)
 
@@ -41,7 +41,7 @@ install(TARGETS nih
 
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
-  ${CMAKE_SOURCE_DIR}/cmake/nih-config.cmake.in
+  ${CMAKE_CURRENT_LIST_DIR}/cmake/nih-config.cmake.in
   ${CMAKE_BINARY_DIR}/cmake/nih-config.cmake
   INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/nih)
 
@@ -72,9 +72,9 @@ if (ENABLE_TESTS)
 
   add_executable(test-nih ${TEST_SOURCES})
   target_include_directories(test-nih
-    PRIVATE "${PROJECT_SOURCE_DIR}/include"
+    PRIVATE "${CMAKE_CURRENT_LIST_DIR}/include"
     PRIVATE "${GTEST_INCLUDE_DIRS}"
-    "${PROJECT_SOURCE_DIR}/include")
+    "${CMAKE_CURRENT_LIST_DIR}/include")
   target_link_libraries(test-nih
     GTest::GTest GTest::Main
     nih::nih)

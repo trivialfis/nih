@@ -1,15 +1,9 @@
-#ifndef JSON_HH_
-#define JSON_HH_
-
-#define LOG std::cout << __FILE__ << ", " << __LINE__ << ": "
-#define L(CONTENT)                                      \
-  std::cout << __FILE__ << ", " << __LINE__ << ": "     \
-  << CONTENT << '|' << std::endl;                       \
+#ifndef _JSON_HH_
+#define _JSON_HH_
 
 #include <iostream>
 #include <istream>
 #include <string>
-#include <sstream>
 
 #include <map>
 #include <memory>
@@ -17,23 +11,6 @@
 
 namespace nih {
 namespace json {
-
-class DebugFunction {
-  std::string f;
- public:
-  DebugFunction(std::string func) : f(func){
-    std::cout << "start " << func << std::endl;;
-  }
-  ~DebugFunction() {
-    std::cout << "end   " << f << std::endl;;
-  }
-};
-
-#define DEBUG_F auto __debug_f__ = DebugFunction(__PRETTY_FUNCTION__);
-#define CHECK_GE(a, b)                                  \
-  if (!((a) >= (b))) {                                  \
-    throw std::runtime_error("CHECK_GE failed");        \
-  }                                                     \
 
 class Json;
 class JsonWriter;
@@ -45,7 +22,7 @@ class Value {
     String,
     Number,
     Object,  // std::map
-    Array,   // std::vector, std::list, std::array
+    Array,   // std::vector
     Boolean,
     Null
   };
@@ -147,8 +124,8 @@ class JsonObject : public Value {
   virtual Json& operator[](std::string const & key) override;
   virtual Json& operator[](int ind) override;
 
-  std::map<std::string, Json> const& GetObject() const { return object_; }
-  std::map<std::string, Json> &      GetObject() { return object_; }
+  std::map<std::string, Json> const& getObject() const { return object_; }
+  std::map<std::string, Json> &      getObject() { return object_; }
 
   virtual bool operator==(Value const& rhs) const override;
   virtual Value& operator=(Value const& rhs) override;
@@ -172,7 +149,7 @@ class JsonNumber : public Value {
   virtual Json& operator[](std::string const & key) override;
   virtual Json& operator[](int ind) override;
 
-  double GetNumber() const { return number_; }
+  double getNumber() const { return number_; }
 
   virtual bool operator==(Value const& rhs) const override;
   virtual Value& operator=(Value const& rhs) override;
@@ -218,7 +195,7 @@ class JsonBoolean : public Value {
   virtual Json& operator[](std::string const & key) override;
   virtual Json& operator[](int ind) override;
 
-  bool GetBoolean() const { return boolean_; }
+  bool getBoolean() const { return boolean_; }
 
   virtual bool operator==(Value const& rhs) const override;
   virtual Value& operator=(Value const& rhs) override;
@@ -328,18 +305,57 @@ class Json {
   std::shared_ptr<Value> ptr_;
 };
 
+namespace detail {
+
+template <typename T,
+          typename std::enable_if<
+            std::is_same<T, json::JsonNumber>::value>::type* = nullptr>
+double getImpl(T& val) {
+  return val.getNumber();
+}
+
+template <typename T,
+          typename std::enable_if<
+            std::is_same<T, json::JsonString>::value>::type* = nullptr>
+std::string& getImpl(T& val) {
+  return val.getString();
+}
+
+template <typename T,
+          typename std::enable_if<
+            std::is_same<T, json::JsonBoolean>::value>::type* = nullptr>
+bool getImpl(T& val) {
+  return val.getBoolean();
+}
+
+template <typename T,
+          typename std::enable_if<
+            std::is_same<T, json::JsonArray>::value>::type* = nullptr>
+std::vector<Json>& getImpl(T& val) {
+  return val.getArray();
+}
+
+template <typename T,
+          typename std::enable_if<
+            std::is_same<T, json::JsonObject>::value>::type* = nullptr>
+std::map<std::string, Json>& getImpl(T& val) {
+  return val.getObject();
+}
+
+}  // namespace detail
+
 /*!
  * \brief Get Json value.
  *
  * \tparam T One of the Json value type.
  *
  * \param json
- * \return Json value with type T.
+ * \return Value contained in Json object of type T.
  */
 template <typename T, typename U>
-T Get(U json) {
+auto get(U& json) {
   auto value = *Cast<T>(&json.getValue());
-  return value;
+  return detail::getImpl(value);
 }
 
 using Object = JsonObject;
@@ -352,4 +368,4 @@ using Null = JsonNull;
 }      // namespace json
 }  // namespace nih
 
-#endif  // JSON_HH_
+#endif  // _JSON_HH_

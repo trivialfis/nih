@@ -142,7 +142,7 @@ TEST(Json, ParseNumber) {
   std::string str = "31.8892";
   std::istringstream iss(str);
   auto json = json::Json::load(&iss);
-  ASSERT_EQ(Get<JsonNumber>(json).GetNumber(), 31.8892);
+  ASSERT_EQ(get<JsonNumber>(json), 31.8892);
 }
 
 TEST(Json, ParseArray) {
@@ -176,10 +176,10 @@ TEST(Json, ParseArray) {
   std::istringstream iss(str);
   auto json = json::Json::load(&iss);
   json = json["nodes"];
-  auto arr = Get<JsonArray>(json).getArray();
+  std::vector<Json> arr = get<JsonArray>(json);
   ASSERT_EQ(arr.size(), 3);
-  auto v0 = arr[0];
-  ASSERT_EQ(Get<JsonNumber>(v0["depth"]).GetNumber(), 3);
+  Json v0 = arr[0];
+  ASSERT_EQ(get<JsonNumber>(v0["depth"]), 3);
 }
 
 TEST(Json, EmptyArray) {
@@ -190,7 +190,7 @@ TEST(Json, EmptyArray) {
 )json";
   std::istringstream iss(str);
   auto json = json::Json::load(&iss);
-  auto arr = Get<JsonArray>(json["leaf_vector"]).getArray();
+  auto arr = get<JsonArray>(json["leaf_vector"]);
   ASSERT_EQ(arr.size(), 0);
 }
 
@@ -204,9 +204,9 @@ TEST(Json, Boolean) {
   std::stringstream ss(str);
   Json j {json::Json::load(&ss)};
   ASSERT_EQ(
-      json::Get<JsonBoolean>(j["left_child"]).GetBoolean(), true);
+      json::get<JsonBoolean>(j["left_child"]), true);
   ASSERT_EQ(
-      json::Get<JsonBoolean>(j["right_child"]).GetBoolean(), false);
+      json::get<JsonBoolean>(j["right_child"]), false);
 }
 
 TEST(Json, Indexing) {
@@ -225,7 +225,7 @@ TEST(Json, AssigningObjects) {
     Json json;
     json = JsonObject();
     json["Okay"] = JsonArray();
-    ASSERT_EQ(Get<JsonArray>(json["Okay"]).getArray().size(), 0);
+    ASSERT_EQ(get<JsonArray>(json["Okay"]).size(), 0);
   }
 
   {
@@ -233,8 +233,8 @@ TEST(Json, AssigningObjects) {
     Json json_objects {JsonObject()};
     std::vector<Json> arr_0 (1, Json(3.3));
     json_objects["tree_parameters"] = JsonArray(arr_0);
-    std::vector<Json> json_arr = Get<JsonArray>(json_objects["tree_parameters"]).getArray();
-    ASSERT_EQ(Get<JsonNumber>(json_arr[0]).GetNumber(), 3.3);
+    std::vector<Json> json_arr = get<JsonArray>(json_objects["tree_parameters"]);
+    ASSERT_EQ(get<JsonNumber>(json_arr[0]), 3.3);
   }
 
   {
@@ -243,9 +243,9 @@ TEST(Json, AssigningObjects) {
     auto& k = json_object["1"];
     k  = str;
     auto& m = json_object["1"];
-    std::string value = Get<JsonString>(m).getString();
+    std::string value = get<JsonString>(m);
     ASSERT_EQ(value, "1");
-    ASSERT_EQ(Get<JsonString>(json_object["1"]).getString(), "1");
+    ASSERT_EQ(get<JsonString>(json_object["1"]), "1");
   }
 }
 
