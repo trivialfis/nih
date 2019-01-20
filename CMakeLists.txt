@@ -10,11 +10,12 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
   message(FATAL "In-source builds not supported.")
 endif()
 
-add_library(nih INTERFACE)
+add_library(nih "${PROJECT_SOURCE_DIR}/src/json.cc")
 add_library(nih::nih ALIAS nih)
 target_include_directories(nih
-  INTERFACE
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/>
+  PRIVATE
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/>
+  PUBLIC
   $<INSTALL_INTERFACE:include/>)
 
 include(GNUInstallDirs)
@@ -23,6 +24,7 @@ install(FILES
   "${PROJECT_SOURCE_DIR}/include/nih/math.hh"
   "${PROJECT_SOURCE_DIR}/include/nih/range.hh"
   "${PROJECT_SOURCE_DIR}/include/nih/primitives.hh"
+  "${PROJECT_SOURCE_DIR}/include/nih/json.hh"
   DESTINATION
   include/nih/)
 
@@ -71,8 +73,11 @@ if (ENABLE_TESTS)
   add_executable(test-nih ${TEST_SOURCES})
   target_include_directories(test-nih
     PRIVATE "${PROJECT_SOURCE_DIR}/include"
-    PRIVATE "${GTEST_INCLUDE_DIRS}")
-  target_link_libraries(test-nih GTest::GTest GTest::Main)
+    PRIVATE "${GTEST_INCLUDE_DIRS}"
+    "${PROJECT_SOURCE_DIR}/include")
+  target_link_libraries(test-nih
+    GTest::GTest GTest::Main
+    nih::nih)
   set_target_properties(
     test-nih PROPERTIES
     CXX_STANDARD 14

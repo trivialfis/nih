@@ -15,8 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with NIH.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef BASIC_RANGE_HH_
-#define BASIC_RANGE_HH_
+#ifndef _RANGE_HH_
+#define _RANGE_HH_
 
 #include <iterator>
 #include "nih/primitives.hh"
@@ -98,4 +98,4 @@ class Range {
 
 }  // namespace nih
 
-#endif  // BASIC_RANGE_HH_
+#endif  // _RANGE_HH_
