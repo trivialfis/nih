@@ -70,16 +70,16 @@ class JsonString : public Value {
   JsonString(std::string&& str) :
       Value(ValueKind::String), str_{std::move(str)} {}
 
-  virtual void save(JsonWriter* stream) override;
+  void save(JsonWriter* stream) override;
 
-  virtual Json& operator[](std::string const & key) override;
-  virtual Json& operator[](int ind) override;
+  Json& operator[](std::string const & key) override;
+  Json& operator[](int ind) override;
 
   std::string const& getString() const { return str_; }
   std::string & getString() { return str_;}
 
-  virtual bool operator==(Value const& rhs) const override;
-  virtual Value& operator=(Value const& rhs) override;
+  bool operator==(Value const& rhs) const override;
+  Value& operator=(Value const& rhs) override;
 
   static bool isClassOf(Value const* value) {
     return value->type() == ValueKind::String;
@@ -96,16 +96,16 @@ class JsonArray : public Value {
   JsonArray(std::vector<Json> const& arr) :
       Value(ValueKind::Array), vec_{arr} {}
 
-  virtual void save(JsonWriter* stream) override;
+  void save(JsonWriter* stream) override;
 
-  virtual Json& operator[](std::string const & key) override;
-  virtual Json& operator[](int ind) override;
+  Json& operator[](std::string const & key) override;
+  Json& operator[](int ind) override;
 
   std::vector<Json> const& getArray() const { return vec_; }
   std::vector<Json> & getArray() { return vec_; }
 
-  virtual bool operator==(Value const& rhs) const override;
-  virtual Value& operator=(Value const& rhs) override;
+  bool operator==(Value const& rhs) const override;
+  Value& operator=(Value const& rhs) override;
 
   static bool isClassOf(Value const* value) {
     return value->type() == ValueKind::Array;
@@ -119,20 +119,21 @@ class JsonObject : public Value {
   JsonObject() : Value(ValueKind::Object) {}
   JsonObject(std::map<std::string, Json> object);
 
-  virtual void save(JsonWriter* writer) override;
+  void save(JsonWriter* writer) override;
 
-  virtual Json& operator[](std::string const & key) override;
-  virtual Json& operator[](int ind) override;
+  Json& operator[](std::string const & key) override;
+  Json& operator[](int ind) override;
 
   std::map<std::string, Json> const& getObject() const { return object_; }
   std::map<std::string, Json> &      getObject() { return object_; }
 
-  virtual bool operator==(Value const& rhs) const override;
-  virtual Value& operator=(Value const& rhs) override;
+  bool operator==(Value const& rhs) const override;
+  Value& operator=(Value const& rhs) override;
 
   static bool isClassOf(Value const* value) {
     return value->type() == ValueKind::Object;
   }
+  virtual ~JsonObject() = default;
 };
 
 class JsonNumber : public Value {
@@ -144,15 +145,15 @@ class JsonNumber : public Value {
     number_ = value;
   }
 
-  virtual void save(JsonWriter* stream) override;
+  void save(JsonWriter* stream) override;
 
-  virtual Json& operator[](std::string const & key) override;
-  virtual Json& operator[](int ind) override;
+  Json& operator[](std::string const & key) override;
+  Json& operator[](int ind) override;
 
   double getNumber() const { return number_; }
 
-  virtual bool operator==(Value const& rhs) const override;
-  virtual Value& operator=(Value const& rhs) override;
+  bool operator==(Value const& rhs) const override;
+  Value& operator=(Value const& rhs) override;
 
   static bool isClassOf(Value const* value) {
     return value->type() == ValueKind::Number;
@@ -164,13 +165,13 @@ class JsonNull : public Value {
   JsonNull() : Value(ValueKind::Null) {}
   JsonNull(std::nullptr_t) : Value(ValueKind::Null) {}
 
-  virtual void save(JsonWriter* stream) override;
+  void save(JsonWriter* stream) override;
 
-  virtual Json& operator[](std::string const & key) override;
-  virtual Json& operator[](int ind) override;
+  Json& operator[](std::string const & key) override;
+  Json& operator[](int ind) override;
 
-  virtual bool operator==(Value const& rhs) const override;
-  virtual Value& operator=(Value const& rhs) override;
+  bool operator==(Value const& rhs) const override;
+  Value& operator=(Value const& rhs) override;
 
   static bool isClassOf(Value const* value) {
     return value->type() == ValueKind::Null;
@@ -190,15 +191,15 @@ class JsonBoolean : public Value {
   JsonBoolean(Bool value) :
       Value(ValueKind::Boolean), boolean_{value} {}
 
-  virtual void save(JsonWriter* writer) override;
+  void save(JsonWriter* writer) override;
 
-  virtual Json& operator[](std::string const & key) override;
-  virtual Json& operator[](int ind) override;
+  Json& operator[](std::string const & key) override;
+  Json& operator[](int ind) override;
 
   bool getBoolean() const { return boolean_; }
 
-  virtual bool operator==(Value const& rhs) const override;
-  virtual Value& operator=(Value const& rhs) override;
+  bool operator==(Value const& rhs) const override;
+  Value& operator=(Value const& rhs) override;
 
   static bool isClassOf(Value const* value) {
     return value->type() == ValueKind::Boolean;
