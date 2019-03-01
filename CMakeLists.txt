@@ -12,6 +12,10 @@ endif()
 
 add_library(nih SHARED "${CMAKE_CURRENT_LIST_DIR}/src/json.cc")
 add_library(nih::nih ALIAS nih)
+set_target_properties(
+  nih PROPERTIES
+  CXX_STANDARD 11
+  CXX_STANDARD_REQUIRED ON)
 target_include_directories(nih
   PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/>
@@ -80,7 +84,7 @@ if (ENABLE_TESTS)
     nih::nih)
   set_target_properties(
     test-nih PROPERTIES
-    CXX_STANDARD 14
+    CXX_STANDARD 11
     CXX_STANDARD_REQUIRED ON)
   if (ENABLE_CLANG_TIDY)
     set_target_properties(

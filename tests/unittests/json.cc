@@ -249,6 +249,17 @@ TEST(Json, AssigningObjects) {
   }
 }
 
+TEST(Json, AssigningArray) {
+  Json json;
+  json = JsonArray();
+  std::vector<Json> tmp_0 {Json(Number(1)), Json(Number(2))};
+  json = tmp_0;
+  std::vector<Json> tmp_1 {Json(Number(3))};
+  get<Array>(json) = tmp_1;
+  std::vector<Json> res = get<Array>(json);
+  ASSERT_EQ(get<Number>(res[0]), 3);
+}
+
 TEST(Json, LoadDump) {
   std::stringstream ss(getModelStr());
   Json origin {json::Json::load(&ss)};

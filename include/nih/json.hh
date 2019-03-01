@@ -150,7 +150,8 @@ class JsonNumber : public Value {
   Json& operator[](std::string const & key) override;
   Json& operator[](int ind) override;
 
-  double getNumber() const { return number_; }
+  double  getNumber() const { return number_; }
+  double& getNumber() { return number_; }
 
   bool operator==(Value const& rhs) const override;
   Value& operator=(Value const& rhs) override;
@@ -196,7 +197,8 @@ class JsonBoolean : public Value {
   Json& operator[](std::string const & key) override;
   Json& operator[](int ind) override;
 
-  bool getBoolean() const { return boolean_; }
+  bool  getBoolean() const { return boolean_; }
+  bool& getBoolean() { return boolean_; }
 
   bool operator==(Value const& rhs) const override;
   Value& operator=(Value const& rhs) override;
@@ -311,7 +313,7 @@ namespace detail {
 template <typename T,
           typename std::enable_if<
             std::is_same<T, json::JsonNumber>::value>::type* = nullptr>
-double getImpl(T& val) {
+double& getImpl(T& val) {
   return val.getNumber();
 }
 
@@ -325,7 +327,7 @@ std::string& getImpl(T& val) {
 template <typename T,
           typename std::enable_if<
             std::is_same<T, json::JsonBoolean>::value>::type* = nullptr>
-bool getImpl(T& val) {
+bool& getImpl(T& val) {
   return val.getBoolean();
 }
 
@@ -354,8 +356,8 @@ std::map<std::string, Json>& getImpl(T& val) {
  * \return Value contained in Json object of type T.
  */
 template <typename T, typename U>
-auto get(U& json) {
-  auto value = *Cast<T>(&json.getValue());
+auto get(U& json) -> decltype(detail::getImpl(*Cast<T>(&json.getValue())))& {
+  auto& value = *Cast<T>(&json.getValue());
   return detail::getImpl(value);
 }
 
