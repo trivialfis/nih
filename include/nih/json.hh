@@ -92,8 +92,9 @@ class JsonString : public Value {
   Json& operator[](std::string const & key) override;
   Json& operator[](int ind) override;
 
-  std::string const& getString() const { return str_; }
-  std::string&       getString()       { return str_;}
+  std::string const& getString() &&      { return str_; }
+  std::string const& getString() const & { return str_; }
+  std::string&       getString()       & { return str_;}
 
   bool operator==(Value const& rhs) const override;
   Value& operator=(Value const& rhs) override;
@@ -118,8 +119,9 @@ class JsonArray : public Value {
   Json& operator[](std::string const & key) override;
   Json& operator[](int ind) override;
 
-  std::vector<Json> const& getArray() const { return vec_; }
-  std::vector<Json>&       getArray()       { return vec_; }
+  std::vector<Json> const& getArray() &&      { return vec_; }
+  std::vector<Json> const& getArray() const & { return vec_; }
+  std::vector<Json>&       getArray()       & { return vec_; }
 
   bool operator==(Value const& rhs) const override;
   Value& operator=(Value const& rhs) override;
@@ -141,8 +143,9 @@ class JsonObject : public Value {
   Json& operator[](std::string const & key) override;
   Json& operator[](int ind) override;
 
-  std::map<std::string, Json> const& getObject() const { return object_; }
-  std::map<std::string, Json> &      getObject() { return object_; }
+  std::map<std::string, Json> const& getObject() &&      { return object_; }
+  std::map<std::string, Json> const& getObject() const & { return object_; }
+  std::map<std::string, Json> &      getObject() &       { return object_; }
 
   bool operator==(Value const& rhs) const override;
   Value& operator=(Value const& rhs) override;
@@ -167,8 +170,9 @@ class JsonNumber : public Value {
   Json& operator[](std::string const & key) override;
   Json& operator[](int ind) override;
 
-  double const&  getNumber() const { return number_; }
-  double&        getNumber()       { return number_; }
+  double const& getNumber() &&      { return number_; }
+  double const& getNumber() const & { return number_; }
+  double&       getNumber()       & { return number_; }
 
   bool operator==(Value const& rhs) const override;
   Value& operator=(Value const& rhs) override;
@@ -214,8 +218,9 @@ class JsonBoolean : public Value {
   Json& operator[](std::string const & key) override;
   Json& operator[](int ind) override;
 
-  bool const&  getBoolean() const { return boolean_; }
-  bool&        getBoolean()       { return boolean_; }
+  bool const& getBoolean() &&      { return boolean_; }
+  bool const& getBoolean() const & { return boolean_; }
+  bool&       getBoolean()       & { return boolean_; }
 
   bool operator==(Value const& rhs) const override;
   Value& operator=(Value const& rhs) override;
@@ -244,7 +249,7 @@ class JsonBoolean : public Value {
  */
 class Json {
   friend JsonWriter;
-  void Save(JsonWriter* writer) {
+  void save(JsonWriter* writer) {
     this->ptr_->save(writer);
   }
 
@@ -314,8 +319,9 @@ class Json {
   Json& operator[](int ind)                 const { return (*ptr_)[ind]; }
 
   /*! \Brief Return the reference to stored Json value. */
-  Value& getValue() { return *ptr_; }
-  Value const& getValue() const {return *ptr_;}
+  Value const& getValue() const & { return *ptr_;}
+  Value const& getValue() &&      { return *ptr_; }
+  Value&       getValue() &       { return *ptr_; }
 
   bool operator==(Json const& rhs) const {
     return *ptr_ == *(rhs.ptr_);
@@ -330,13 +336,13 @@ namespace detail {
 // Number
 template <typename T,
           typename std::enable_if<
-            std::is_same<T, json::JsonNumber>::value
-            >::type* = nullptr>
+            std::is_same<T, json::JsonNumber>::value>::type* = nullptr>
 double& getImpl(T& val) {
   return val.getNumber();
 }
 template <typename T,
-          typename std::enable_if<std::is_same<T, json::JsonNumber const>::value>::type* = nullptr>
+          typename std::enable_if<
+            std::is_same<T, json::JsonNumber const>::value>::type* = nullptr>
 double const& getImpl(T& val) {
   return val.getNumber();
 }
@@ -365,7 +371,7 @@ bool& getImpl(T& val) {
 template <typename T,
           typename std::enable_if<
             std::is_same<T, json::JsonBoolean const>::value>::type* = nullptr>
-bool& getImpl(T& val) {
+bool const& getImpl(T& val) {
   return val.getBoolean();
 }
 
@@ -420,7 +426,7 @@ using Boolean = JsonBoolean;
 using String = JsonString;
 using Null = JsonNull;
 
-}      // namespace json
+}  // namespace json
 }  // namespace nih
 
 #endif  // _JSON_HH_
