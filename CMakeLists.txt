@@ -10,7 +10,9 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
   message(FATAL "In-source builds not supported.")
 endif()
 
-add_library(nih SHARED "${CMAKE_CURRENT_LIST_DIR}/src/json.cc")
+add_library(nih SHARED
+  "${CMAKE_CURRENT_LIST_DIR}/src/json.cc"
+  "${CMAKE_CURRENT_LIST_DIR}/src/logging.cc")
 add_library(nih::nih ALIAS nih)
 set_target_properties(
   nih PROPERTIES

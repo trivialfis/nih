@@ -280,7 +280,8 @@ TEST(Json, AssigningNumber) {
     // left value
     Json json = Json{ Number(4) };
     double value = get<Number>(json);
-    value = 15;
+    ASSERT_EQ(value, 4);
+    value = 15;  // NOLINT
     ASSERT_EQ(get<Number>(json), 4);
   }
 }
