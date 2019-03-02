@@ -260,6 +260,56 @@ TEST(Json, AssigningArray) {
   ASSERT_EQ(get<Number>(res[0]), 3);
 }
 
+TEST(Json, AssigningNumber) {
+  {
+    // right value
+    Json json = Json{ Number(4) };
+    get<Number>(json) = 15;
+    ASSERT_EQ(get<Number>(json), 15);
+  }
+
+  {
+    // left value ref
+    Json json = Json{ Number(4) };
+    double& ref = get<Number>(json);
+    ref = 15;
+    ASSERT_EQ(get<Number>(json), 15);
+  }
+
+  {
+    // left value
+    Json json = Json{ Number(4) };
+    double value = get<Number>(json);
+    value = 15;
+    ASSERT_EQ(get<Number>(json), 4);
+  }
+}
+
+TEST(Json, AssigningString) {
+  {
+    // right value
+    Json json = Json{ String("str") };
+    get<String>(json) = "modified";
+    ASSERT_EQ(get<String>(json), "modified");
+  }
+
+  {
+    // left value ref
+    Json json = Json{ String("str") };
+    std::string& ref = get<String>(json);
+    ref = "modified";
+    ASSERT_EQ(get<String>(json), "modified");
+  }
+
+  {
+    // left value
+    Json json = Json{ String("str") };
+    std::string value = get<String>(json);
+    value = "modified";
+    ASSERT_EQ(get<String>(json), "str");
+  }
+}
+
 TEST(Json, LoadDump) {
   std::stringstream ss(getModelStr());
   Json origin {json::Json::load(&ss)};
@@ -288,6 +338,22 @@ TEST(Json, CopyUnicode) {
 
   std::string dumped_string = ss_1.str();
   ASSERT_NE(dumped_string.find("\\u20ac"), std::string::npos);
+}
+
+TEST(Json, WrongCasts) {
+  {
+    Json json = Json{ String{"str"} };
+    ASSERT_ANY_THROW(get<Number>(json));
+  }
+  {
+    Json json = Json{ Array{ std::vector<Json>{ Json{ Number{1} } } } };
+    ASSERT_ANY_THROW(get<Number>(json));
+  }
+  {
+    Json json = Json{ Object{std::map<std::string, Json>{
+          {"key", Json{String{"value"}}}} } };
+    ASSERT_ANY_THROW(get<Number>(json));
+  }
 }
 
 }  // namespace json

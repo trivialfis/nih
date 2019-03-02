@@ -76,7 +76,7 @@ class JsonString : public Value {
   Json& operator[](int ind) override;
 
   std::string const& getString() const { return str_; }
-  std::string & getString() { return str_;}
+  std::string&       getString()       { return str_;}
 
   bool operator==(Value const& rhs) const override;
   Value& operator=(Value const& rhs) override;
@@ -102,7 +102,7 @@ class JsonArray : public Value {
   Json& operator[](int ind) override;
 
   std::vector<Json> const& getArray() const { return vec_; }
-  std::vector<Json> & getArray() { return vec_; }
+  std::vector<Json>&       getArray()       { return vec_; }
 
   bool operator==(Value const& rhs) const override;
   Value& operator=(Value const& rhs) override;
@@ -150,8 +150,8 @@ class JsonNumber : public Value {
   Json& operator[](std::string const & key) override;
   Json& operator[](int ind) override;
 
-  double  getNumber() const { return number_; }
-  double& getNumber() { return number_; }
+  double const&  getNumber() const { return number_; }
+  double&        getNumber()       { return number_; }
 
   bool operator==(Value const& rhs) const override;
   Value& operator=(Value const& rhs) override;
@@ -197,8 +197,8 @@ class JsonBoolean : public Value {
   Json& operator[](std::string const & key) override;
   Json& operator[](int ind) override;
 
-  bool  getBoolean() const { return boolean_; }
-  bool& getBoolean() { return boolean_; }
+  bool const&  getBoolean() const { return boolean_; }
+  bool&        getBoolean()       { return boolean_; }
 
   bool operator==(Value const& rhs) const override;
   Value& operator=(Value const& rhs) override;
@@ -310,38 +310,73 @@ class Json {
 
 namespace detail {
 
+// Number
 template <typename T,
           typename std::enable_if<
-            std::is_same<T, json::JsonNumber>::value>::type* = nullptr>
+            std::is_same<T, json::JsonNumber>::value
+            >::type* = nullptr>
 double& getImpl(T& val) {
   return val.getNumber();
 }
+template <typename T,
+          typename std::enable_if<std::is_same<T, json::JsonNumber const>::value>::type* = nullptr>
+double const& getImpl(T& val) {
+  return val.getNumber();
+}
 
+// String
 template <typename T,
           typename std::enable_if<
             std::is_same<T, json::JsonString>::value>::type* = nullptr>
 std::string& getImpl(T& val) {
   return val.getString();
 }
+template <typename T,
+          typename std::enable_if<
+            std::is_same<T, json::JsonString const>::value>::type* = nullptr>
+std::string const& getImpl(T& val) {
+  return val.getString();
+}
 
+// Boolean
 template <typename T,
           typename std::enable_if<
             std::is_same<T, json::JsonBoolean>::value>::type* = nullptr>
 bool& getImpl(T& val) {
   return val.getBoolean();
 }
+template <typename T,
+          typename std::enable_if<
+            std::is_same<T, json::JsonBoolean const>::value>::type* = nullptr>
+bool& getImpl(T& val) {
+  return val.getBoolean();
+}
 
+// Array
 template <typename T,
           typename std::enable_if<
             std::is_same<T, json::JsonArray>::value>::type* = nullptr>
 std::vector<Json>& getImpl(T& val) {
   return val.getArray();
 }
+template <typename T,
+          typename std::enable_if<
+            std::is_same<T, json::JsonArray const>::value>::type* = nullptr>
+std::vector<Json> const& getImpl(T& val) {
+  return val.getArray();
+}
 
+// Object
 template <typename T,
           typename std::enable_if<
             std::is_same<T, json::JsonObject>::value>::type* = nullptr>
 std::map<std::string, Json>& getImpl(T& val) {
+  return val.getObject();
+}
+template <typename T,
+          typename std::enable_if<
+            std::is_same<T, json::JsonObject const>::value>::type* = nullptr>
+std::map<std::string, Json> const& getImpl(T& val) {
   return val.getObject();
 }
 
