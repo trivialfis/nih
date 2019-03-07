@@ -6,7 +6,7 @@
   #:use-module (gnu packages check))
 
 (define-public nih
-  (let* ((commit "55c4b73264c5e1fa4a5f33cbb70b8a1658193b36")
+  (let* ((commit "c5db5a8c3ba3b817af33f6be92d6a6e6ef6e3c2a")
 	 (revision "0")
 	 (version (git-version "0.0.0" revision commit)))
     (package
@@ -17,15 +17,11 @@
 		(method git-fetch)
 		(uri (git-reference
                       (url home-page)
-                      (commit commit)
-		      (recursive? #t)))
+                      (commit commit)))
 		(sha256
 		 (base32
-		  "0mbsybvkzm62w54zyw61kp5fdbmwsyh9n0f38y04kyq2jmsxq3nd"))
+		  "0vs06d8mr4xz5q9d9lkw670kq4hvgzrcsrb65gd18kfqrn1w42la"))
 		(file-name (git-file-name name version))))
-      (arguments
-       `(#:configure-flags
-	 '("-DCXX_STANDARD=ON")))
       (native-inputs
        `(("googletest" ,googletest)))
       (build-system cmake-build-system)
