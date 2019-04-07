@@ -31,6 +31,8 @@ install(FILES
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/range.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/primitives.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/json.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/logging.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/errors.hh"
   DESTINATION
   include/nih/)
 
