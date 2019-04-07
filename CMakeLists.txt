@@ -33,6 +33,7 @@ install(FILES
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/json.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/logging.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/errors.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/monitor.hh"
   DESTINATION
   include/nih/)
 
