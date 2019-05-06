@@ -106,7 +106,7 @@ class Log {
   if (::nih::Log::shouldLog(::nih::Log::ErrorType::kDebug))             \
     ::nih::Log().log(ERROR_FILE_LINE, ::nih::Log::ErrorType::kDebug)
 
-#define ASSERT(cond)                            \
+#define NIH_ASSERT(cond)                        \
     if (! (cond) ) LOG(FATAL) << # cond << "\n" \
 
 
