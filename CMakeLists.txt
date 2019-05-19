@@ -12,7 +12,8 @@ endif()
 
 add_library(nih SHARED
   "${CMAKE_CURRENT_LIST_DIR}/src/json.cc"
-  "${CMAKE_CURRENT_LIST_DIR}/src/logging.cc")
+  "${CMAKE_CURRENT_LIST_DIR}/src/logging.cc"
+  "${CMAKE_CURRENT_LIST_DIR}/src/random.cc")
 add_library(nih::nih ALIAS nih)
 set_target_properties(
   nih PROPERTIES
@@ -33,6 +34,7 @@ install(FILES
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/memory.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/monitor.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/primitives.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/random.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/range.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/strings.hh"
   DESTINATION
