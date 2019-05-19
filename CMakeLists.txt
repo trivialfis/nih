@@ -26,14 +26,15 @@ target_include_directories(nih
 
 include(GNUInstallDirs)
 install(FILES
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/strings.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/math.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/range.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/primitives.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/errors.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/json.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/logging.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/errors.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/math.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/memory.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/monitor.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/primitives.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/range.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/strings.hh"
   DESTINATION
   include/nih/)
 
