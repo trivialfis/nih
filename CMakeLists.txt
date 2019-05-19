@@ -13,6 +13,7 @@ endif()
 add_library(nih SHARED
   "${CMAKE_CURRENT_LIST_DIR}/src/json.cc"
   "${CMAKE_CURRENT_LIST_DIR}/src/logging.cc"
+  "${CMAKE_CURRENT_LIST_DIR}/src/memory.cc"
   "${CMAKE_CURRENT_LIST_DIR}/src/random.cc")
 add_library(nih::nih ALIAS nih)
 set_target_properties(

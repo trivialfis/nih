@@ -9,4 +9,11 @@ TEST(MakeUnique, Basic) {
   auto int_arr = makeUnique<int[]>(4);  // NOLINT
   int_arr[3] = 0;
 }
+
+TEST(MemInfo, Basic) {
+  MemInfo meminfo(false);
+  ASSERT_NE(meminfo.memAvailable(), 0);
+  ASSERT_NE(meminfo.memTotal(), 0);
+}
+
 }  // namespace nih

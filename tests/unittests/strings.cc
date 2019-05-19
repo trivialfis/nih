@@ -58,17 +58,17 @@ TEST(Strings, Strip) {
 TEST(Strings, Split) {
   std::string input {"Hello, world"};
   std::vector<std::string> result;
-  split(result, input, [](char c){ return c == ','; });
+  split(input, &result, [](char c){ return c == ','; });
   ASSERT_EQ(result.size(), 2);
   ASSERT_EQ(result.at(0), "Hello");
   ASSERT_EQ(result.at(1), " world");
 
   input = "Hello";
-  split(result, input, [](char c){ return c == ','; });
+  split(input, &result, [](char c){ return c == ','; });
   ASSERT_EQ(result.at(2), "Hello");
 
   input = "";
-  split(result, input, [](char c){ return c == ','; });
+  split(input, &result, [](char c){ return c == ','; });
   ASSERT_EQ(result.size(), 3);
 }
 

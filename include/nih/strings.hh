@@ -26,7 +26,7 @@
 namespace nih {
 
 template <typename Functor>
-void split(std::vector<std::string>& result, std::string const& input,
+void split(std::string const& input, std::vector<std::string>* result,
            Functor func) {
   NihInt last_pos = 0;
   NihInt len = 0;
@@ -34,13 +34,13 @@ void split(std::vector<std::string>& result, std::string const& input,
     if (!func(c)) {
       len++;
     } else {
-      result.push_back(input.substr(last_pos, len));
+      result->push_back(input.substr(last_pos, len));
       last_pos += len + 1;
       len = 0;
     }
   }
   if (input.size() - last_pos > 0) {
-    result.push_back(input.substr(last_pos));
+    result->push_back(input.substr(last_pos));
   }
 }
 
@@ -97,6 +97,11 @@ inline NihDouble str2n<NihDouble>(std::string const& s) {
 template <>
 inline NihInt str2n<NihInt>(std::string const& s) {
   return static_cast<NihInt>(std::stoi(s));
+}
+
+template <>
+inline size_t str2n<size_t>(std::string const& s) {
+  return std::stoull(s);
 }
 
 }  // namespace nih

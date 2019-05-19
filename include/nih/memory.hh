@@ -14,12 +14,14 @@
  *
  * You should have received a copy of the Lesser GNU General Public License
  * along with NIH.  If not, see <https://www.gnu.org/licenses/>.
- *
- * std::make_unique implementation, translated from libstdc++
  */
 #ifndef _MEMORY_HH_
 #define _MEMORY_HH_
+
+#include <fstream>
+#include <map>
 #include <memory>
+#include <string>
 
 namespace nih {
 
@@ -42,6 +44,7 @@ struct MakeUnique<Type[Bound]> {
 
 }  // namespace detail
 
+// std::make_unique implementation, translated from libstdc++
 template <typename Type, typename... Args>
 typename detail::MakeUnique<Type>::SingleObject makeUnique(Args&&... args) {
   return std::unique_ptr<Type>(new Type(std::forward<Args>(args)...));
@@ -54,6 +57,30 @@ typename detail::MakeUnique<Type>::Array makeUnique(size_t num) {
 
 template <typename Type, typename... Args>
 typename detail::MakeUnique<Type>::InvalideObject makeUnique(Args&&...) = delete;
+
+class MemInfo {
+  std::string const kInfoPath { "/proc/meminfo" };
+  std::map<std::string, size_t> _meminfo;
+  bool _realtime;
+  std::ifstream fin;
+
+ private:
+  size_t query(std::string name);
+
+ public:
+  MemInfo(bool realtime);
+  ~MemInfo();
+  void refresh();
+
+  size_t memTotal();
+  size_t memFree();
+  size_t memAvailable();
+  size_t buffers();
+  size_t cached();
+  size_t swapCached();
+  size_t active();
+  size_t inactive();
+};
 
 }      // namespace nih
 
