@@ -40,6 +40,7 @@ install(FILES
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/strings.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/singleton.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/threads.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/unroll.hh"
   DESTINATION
   include/nih/)
 
