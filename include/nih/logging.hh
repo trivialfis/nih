@@ -18,6 +18,7 @@
 #ifndef _BASIC_LOGGING_HH_
 #define _BASIC_LOGGING_HH_
 
+#include <cinttypes>
 #include <cstring>
 #include <iostream>
 #include <sstream>
@@ -28,13 +29,14 @@ namespace nih {
 
 class Log {
  public:
-  enum class ErrorType {
+  enum class ErrorType : uint8_t {
     kFatal = 0,
-    kUserError = 1,
-    kWarning = 2,
-    kUser = 3,
-    kInfo = 4,
-    kDebug = 5
+    kError = 1,
+    kUserError = 2,
+    kWarning = 3,
+    kUser = 4,
+    kInfo = 5,
+    kDebug = 6
   } error_type_;
 
  private:
@@ -44,6 +46,7 @@ class Log {
   static ErrorType toType(std::string str);
 
   virtual std::stringstream& fatal();
+  virtual std::stringstream& error();
   virtual std::stringstream& userError();
 
   virtual std::stringstream& user();
@@ -83,6 +86,9 @@ class Log {
 // Unconditional log for errors
 #define LOG_FATAL                                                       \
   ::nih::Log().log(ERROR_FILE_LINE, ::nih::Log::ErrorType::kFatal)
+
+#define LOG_ERROR                                                       \
+  ::nih::Log().Log(ERROR_FILE_LINE, ::nih::Log::ErrorType::kError)
 
 #define LOG_USER_E                                                      \
   ::nih::Log().log("", ::nih::Log::ErrorType::kUserError)

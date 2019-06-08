@@ -56,6 +56,19 @@ class NIHError : public std::exception {
   }
   virtual ~NIHError() = default;
 };
+
+class FatalError : public NIHError {
+ public:
+  explicit FatalError(std::string const& what_arg) : NIHError(what_arg) {}
+  explicit FatalError(char const* what_arg) : NIHError(what_arg) {}
+};
+
+class RecoverableError : public NIHError {
+ public:
+  explicit RecoverableError(std::string const& what_arg) : NIHError(what_arg) {}
+  explicit RecoverableError(char const* what_arg) : NIHError(what_arg) {}
+};
+
 }  // namespace nih
 
 #endif  // _ERRORS_HH_

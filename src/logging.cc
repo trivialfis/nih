@@ -51,6 +51,8 @@ Log::ErrorType Log::global_ = Log::defaultVerbosity();
 Log::ErrorType Log::toType(std::string str) {
   if (str == "Fatal") {
     return ErrorType::kFatal;
+  } else if (str == "Error") {
+    return ErrorType::kError;
   } else if (str == "UserError") {
     return ErrorType::kUserError;
   } else if (str == "Warning") {
@@ -75,6 +77,12 @@ void Log::setGlobalVerbosity(std::string value) {
 std::stringstream& Log::fatal() {
   error_type_ = ErrorType::kFatal;
   stream_ << Colorize{}(Colorize::kRed, "[FATAL]") << ": ";
+  return stream_;
+}
+
+std::stringstream& Log::error() {
+  error_type_ = ErrorType::kFatal;
+  stream_ << Colorize{}(Colorize::kRed, "[ERROR]") << ": ";
   return stream_;
 }
 
@@ -114,6 +122,9 @@ std::stringstream& Log::log(std::string msg, ErrorType et) {
     case ErrorType::kFatal:
       fatal() << msg;
       return stream_;
+    case ErrorType::kError:
+      error() << msg;
+      return stream_;
     case ErrorType::kUserError:
       userError() << msg;
       return stream_;
@@ -146,10 +157,13 @@ Log::~Log() noexcept(false) {
   switch (error_type_){
     // throw
     case ErrorType::kFatal:
-      throw NIHError(stream_.str() + "\n");
+      throw FatalError(stream_.str() + "\n");
+      break;
+    case ErrorType::kError:
+      throw RecoverableError(stream_.str() + "\n");
       break;
     case ErrorType::kUserError:
-      throw NIHError(stream_.str() + "\n");
+      throw RecoverableError(stream_.str() + "\n");
       break;
     default:
       break;
