@@ -11,6 +11,7 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
 endif()
 
 add_library(nih SHARED
+  "${CMAKE_CURRENT_LIST_DIR}/src/errors.cc"
   "${CMAKE_CURRENT_LIST_DIR}/src/json.cc"
   "${CMAKE_CURRENT_LIST_DIR}/src/logging.cc"
   "${CMAKE_CURRENT_LIST_DIR}/src/memory.cc"

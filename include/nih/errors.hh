@@ -20,17 +20,39 @@
 
 #include <exception>
 #include <string>
+#include <vector>
 
 namespace nih {
-class NIHError : public std::exception {
-  std::string error_;
+
+class StackTrace {
+  std::vector<std::string> _trace;
+  static size_t constexpr kDefaultSize = 16;
+  size_t _stack_size;
 
  public:
-  explicit NIHError(std::string const& what_arg) : error_{what_arg} {}
-  explicit NIHError(char const* what_arg) : error_{what_arg} {}
+  StackTrace(size_t stack_size = kDefaultSize);
+
+  std::vector<std::string> const& refresh();
+  std::vector<std::string> const& refresh(size_t stack_size);
+
+  std::vector<std::string> const& get() const;
+  std::string str() const;
+};
+
+
+class NIHError : public std::exception {
+  std::string _error;
+  StackTrace _trace;
+
+ public:
+  explicit NIHError(std::string const& what_arg) : _error{what_arg} {}
+  explicit NIHError(char const* what_arg) : _error{what_arg} {}
 
   virtual const char* what() const noexcept {  // NOLINT
-    return error_.c_str();
+    return _error.c_str();
+  }
+  virtual StackTrace const& trace() const {
+    return _trace;
   }
   virtual ~NIHError() = default;
 };
