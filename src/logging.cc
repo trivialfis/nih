@@ -22,6 +22,8 @@
 
 #include "nih/errors.hh"
 #include "nih/logging.hh"
+#include "nih/threads.hh"
+#include "nih/memory.hh"
 
 namespace nih {
 
@@ -46,6 +48,33 @@ struct Colorize {
     return msg;
   }
 };
+
+class LogImpl {
+  ThreadStore<std::string> _names;
+
+ public:
+  void set(std::string name) {
+    _names.setCurrentThread(std::move(name));
+  }
+  std::string get() {
+    if (_names.hasValue()) {
+      return _names.getCurrentThread();
+    }
+    return "";
+  }
+  std::string str() {
+    std::string name = this->get();
+    if (name.length() != 0) {
+      name = "Thread: " + name + " | ";
+    }
+    return name;
+  }
+};
+
+std::unique_ptr<LogImpl> Log::_p_impl{makeUnique<LogImpl>()};
+
+Log::Log() : error_type_{defaultVerbosity()} {}
+
 Log::ErrorType Log::global_ = Log::defaultVerbosity();
 
 Log::ErrorType Log::toType(std::string str) {
@@ -74,44 +103,49 @@ void Log::setGlobalVerbosity(std::string value) {
   setGlobalVerbosity(type);
 }
 
+void Log::setThreadName(std::string name) {
+  _p_impl->set(name);
+}
+
 std::stringstream& Log::fatal() {
   error_type_ = ErrorType::kFatal;
-  stream_ << Colorize{}(Colorize::kRed, "[FATAL]") << ": ";
+  stream_ << _p_impl->str() << Colorize{}(Colorize::kRed, "[FATAL]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::error() {
   error_type_ = ErrorType::kError;
-  stream_ << Colorize{}(Colorize::kRed, "[ERROR]") << ": ";
+  stream_ << _p_impl->str() << Colorize{}(Colorize::kRed, "[ERROR]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::userError() {
   error_type_ = ErrorType::kUserError;
-  stream_ << Colorize{}(Colorize::kRed, "[USER ERROR]") << ": ";
+  stream_ << _p_impl->str() << Colorize{}(Colorize::kRed, "[USER ERROR]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::user() {
   error_type_ = ErrorType::kUser;
+  stream_ << _p_impl->str();
   return stream_;
 }
 
 std::stringstream& Log::warning() {
   error_type_ = ErrorType::kWarning;
-  stream_ << Colorize{}(Colorize::kYellow, "[WARNING]") << ": ";
+  stream_ << _p_impl->str() << Colorize{}(Colorize::kYellow, "[WARNING]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::info() {
   error_type_ = ErrorType::kInfo;
-  stream_ << Colorize{}(Colorize::kWhite, "[INFO]") << ": ";
+  stream_ << _p_impl->str() << Colorize{}(Colorize::kWhite, "[INFO]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::debug() {
   error_type_ = ErrorType::kDebug;
-  stream_ << "[DEBUG]: ";
+  stream_ << _p_impl->str() << "[DEBUG]: ";
   return stream_;
 }
 

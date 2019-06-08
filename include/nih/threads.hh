@@ -17,6 +17,9 @@ class ThreadStore {
   Type const& getCurrentThread() const {
     return _store.at(std::this_thread::get_id());
   }
+  bool hasValue(std::thread::id tid  = std::this_thread::get_id()) {
+    return _store.find(tid) != _store.cend();
+  }
 
   void setCurrentThread(Type&& value) {
     _store[std::this_thread::get_id()] = std::forward<Type>(value);

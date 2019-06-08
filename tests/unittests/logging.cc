@@ -4,7 +4,7 @@
 
 namespace nih {
 
-TEST(Basic, Logging) {
+TEST(Logging, Basic) {
   ASSERT_THROW((LOG(FATAL) << "Fatal"), NIHError);
 
   try {
@@ -73,6 +73,22 @@ TEST(Basic, Logging) {
   LOG_VAR(var);
   output = testing::internal::GetCapturedStdout();
   ASSERT_NE(output.find("17"), std::string::npos);
+}
+
+TEST(Logging, Thread) {
+  Log::setThreadName("main-thread");
+  std::string output;
+
+  testing::internal::CaptureStdout();
+  LOG(USER) << "Log User.";
+  output = testing::internal::GetCapturedStdout();
+  ASSERT_NE(output.find("main-thread"), std::string::npos);
+
+  Log::setThreadName("");
+  testing::internal::CaptureStdout();
+  LOG(USER) << "Log User.";
+  output = testing::internal::GetCapturedStdout();
+  ASSERT_EQ(output.find("Thread"), std::string::npos);
 }
 
 }  // namespace nih

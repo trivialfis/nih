@@ -21,13 +21,18 @@
 #include <cinttypes>
 #include <cstring>
 #include <iostream>
+#include <memory>
 #include <sstream>
 
 #include "errors.hh"
 
 namespace nih {
 
+class LogImpl;
+
 class Log {
+  static std::unique_ptr<LogImpl> _p_impl;
+
  public:
   enum class ErrorType : uint8_t {
     kFatal = 0,
@@ -56,7 +61,7 @@ class Log {
   virtual std::stringstream& debug();
 
  public:
-  Log() : error_type_{defaultVerbosity()} {}
+  Log();
 
   static void setGlobalVerbosity(std::string value);
   static void setGlobalVerbosity(ErrorType et) { global_ = et; }
@@ -70,6 +75,8 @@ class Log {
       std::string msg, ErrorType et=defaultVerbosity());
 
   virtual ~Log() noexcept(false);
+
+  static void setThreadName(std::string name);
 };
 
 }  // namespace nih
