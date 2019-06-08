@@ -31,12 +31,12 @@ class Log {
  public:
   enum class ErrorType : uint8_t {
     kFatal = 0,
-    kError = 1,
-    kUserError = 2,
-    kWarning = 3,
-    kUser = 4,
-    kInfo = 5,
-    kDebug = 6
+    kUserError = 1,
+    kError = 3,
+    kWarning = 4,
+    kUser = 5,
+    kInfo = 6,
+    kDebug = 7
   } error_type_;
 
  private:
@@ -88,7 +88,7 @@ class Log {
   ::nih::Log().log(ERROR_FILE_LINE, ::nih::Log::ErrorType::kFatal)
 
 #define LOG_ERROR                                                       \
-  ::nih::Log().Log(ERROR_FILE_LINE, ::nih::Log::ErrorType::kError)
+  ::nih::Log().log(ERROR_FILE_LINE, ::nih::Log::ErrorType::kError)
 
 #define LOG_USER_E                                                      \
   ::nih::Log().log("", ::nih::Log::ErrorType::kUserError)

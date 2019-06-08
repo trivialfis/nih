@@ -14,6 +14,13 @@ TEST(Basic, Logging) {
     ASSERT_TRUE(error_msg.find("Fatal"));
   }
 
+  try {
+    LOG(FATAL) << "Fatal";
+  } catch(FatalError& e) {
+    std::string error_msg = e.what();
+    ASSERT_TRUE(error_msg.find("Fatal"));
+  }
+
   EXPECT_ANY_THROW(LOG(USER_E) << "User");
 
   std::string output;
@@ -23,6 +30,14 @@ TEST(Basic, Logging) {
     output = testing::internal::GetCapturedStderr();
     ASSERT_NE(output.find("Log warning."), std::string::npos);
     ASSERT_NE(output.find("[WARNING]"), std::string::npos);
+  }
+
+  {
+    testing::internal::CaptureStderr();
+    LOG(ERROR) << "Log error.";
+    output = testing::internal::GetCapturedStderr();
+    ASSERT_NE(output.find("Log error."), std::string::npos);
+    ASSERT_NE(output.find("[ERROR]"), std::string::npos);
   }
 
   {

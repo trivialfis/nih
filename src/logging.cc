@@ -81,7 +81,7 @@ std::stringstream& Log::fatal() {
 }
 
 std::stringstream& Log::error() {
-  error_type_ = ErrorType::kFatal;
+  error_type_ = ErrorType::kError;
   stream_ << Colorize{}(Colorize::kRed, "[ERROR]") << ": ";
   return stream_;
 }
@@ -159,9 +159,6 @@ Log::~Log() noexcept(false) {
     case ErrorType::kFatal:
       throw FatalError(stream_.str() + "\n");
       break;
-    case ErrorType::kError:
-      throw RecoverableError(stream_.str() + "\n");
-      break;
     case ErrorType::kUserError:
       throw RecoverableError(stream_.str() + "\n");
       break;
@@ -174,6 +171,9 @@ Log::~Log() noexcept(false) {
   switch (error_type_) {
     // non throw
     case ErrorType::kWarning:
+      std::cerr << stream_.str() << std::endl;
+      break;
+    case ErrorType::kError:
       std::cerr << stream_.str() << std::endl;
       break;
     case ErrorType::kUser:
