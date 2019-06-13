@@ -12,10 +12,12 @@ endif()
 
 add_library(nih SHARED
   "${CMAKE_CURRENT_LIST_DIR}/src/errors.cc"
+  "${CMAKE_CURRENT_LIST_DIR}/src/file.cc"
   "${CMAKE_CURRENT_LIST_DIR}/src/json.cc"
   "${CMAKE_CURRENT_LIST_DIR}/src/logging.cc"
   "${CMAKE_CURRENT_LIST_DIR}/src/memory.cc"
-  "${CMAKE_CURRENT_LIST_DIR}/src/random.cc")
+  "${CMAKE_CURRENT_LIST_DIR}/src/random.cc"
+  "${CMAKE_CURRENT_LIST_DIR}/src/uri.cc")
 add_library(nih::nih ALIAS nih)
 set_target_properties(
   nih PROPERTIES
@@ -42,6 +44,7 @@ install(FILES
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/singleton.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/threads.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/unroll.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/uri.hh"
   DESTINATION
   include/nih/)
 

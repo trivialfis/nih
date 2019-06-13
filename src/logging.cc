@@ -29,6 +29,8 @@
 namespace nih {
 
 struct Colorize {
+  bool _is_tty;
+
   enum Color {
     kRed,
     kYellow,
