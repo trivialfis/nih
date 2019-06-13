@@ -77,6 +77,7 @@ class Log {
   virtual ~Log() noexcept(false);
 
   static void setThreadName(std::string name);
+  static void setStream(std::ostream* stream, ErrorType type);
 };
 
 }  // namespace nih

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
-
+#include <cstdio>
+#include <fstream>
 #include "nih/logging.hh"
 
 namespace nih {
@@ -89,6 +90,22 @@ TEST(Logging, Thread) {
   LOG(USER) << "Log User.";
   output = testing::internal::GetCapturedStdout();
   ASSERT_EQ(output.find("Thread"), std::string::npos);
+}
+
+TEST(Logging, Stream) {
+  Log::setGlobalVerbosity(Log::ErrorType::kDebug);
+  std::ofstream fout("/tmp/nih-test-logging");
+  ASSERT_TRUE(fout);
+  Log::setStream(&fout, Log::ErrorType::kDebug);
+
+  LOG(DEBUG) << "Debug";
+
+  std::ifstream fin("/tmp/nih-test-logging");
+  ASSERT_TRUE(fin);
+  std::string out;
+  std::getline(fin, out);
+  ASSERT_NE(out.find("Debug"), std::string::npos);
+  std::remove("/tmp/nih-test-logging");
 }
 
 }  // namespace nih

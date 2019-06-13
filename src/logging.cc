@@ -15,6 +15,7 @@
  * You should have received a copy of the Lesser GNU General Public License
  * along with NIH.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include <cstdlib>
 #include <sstream>
 
 #include "nih/C/logging.h"
@@ -51,23 +52,44 @@ struct Colorize {
 
 class LogImpl {
   ThreadStore<std::string> _names;
+  std::map<Log::ErrorType, std::ostream*> _out_streams;
 
  public:
-  void set(std::string name) {
+  LogImpl() {
+    using E = Log::ErrorType;
+    // Default streams
+    _out_streams[E::kWarning] = &std::cerr;
+    _out_streams[E::kError] = &std::cerr;
+    _out_streams[E::kUser] = &std::cout;
+    _out_streams[E::kInfo] = &std::cout;
+    _out_streams[E::kDebug] = &std::cout;
+  }
+  void setThreadName(std::string name) {
     _names.setCurrentThread(std::move(name));
   }
-  std::string get() {
+  std::string getThreadName() {
     if (_names.hasValue()) {
       return _names.getCurrentThread();
     }
     return "";
   }
   std::string str() {
-    std::string name = this->get();
+    std::string name = this->getThreadName();
     if (name.length() != 0) {
       name = "Thread: " + name + " | ";
     }
     return name;
+  }
+
+  std::ostream* getStream(Log::ErrorType type) const {
+    if (_out_streams.find(type) == _out_streams.cend()) {
+      std::cerr << "Unknow Error Type: " << static_cast<uint8_t>(type) << std::endl;
+      abort();
+    }
+    return _out_streams.at(type);
+  }
+  void setStream(Log::ErrorType type, std::ostream* stream) {
+    _out_streams.at(type) = stream;
   }
 };
 
@@ -104,7 +126,11 @@ void Log::setGlobalVerbosity(std::string value) {
 }
 
 void Log::setThreadName(std::string name) {
-  _p_impl->set(name);
+  _p_impl->setThreadName(name);
+}
+
+void Log::setStream(std::ostream* stream, ErrorType type) {
+  _p_impl->setStream(type, stream);
 }
 
 std::stringstream& Log::fatal() {
@@ -205,19 +231,19 @@ Log::~Log() noexcept(false) {
   switch (error_type_) {
     // non throw
     case ErrorType::kWarning:
-      std::cerr << stream_.str() << std::endl;
+      (*_p_impl->getStream(ErrorType::kWarning)) << stream_.str() << std::endl;
       break;
     case ErrorType::kError:
-      std::cerr << stream_.str() << std::endl;
+      (*_p_impl->getStream(ErrorType::kError)) << stream_.str() << std::endl;
       break;
     case ErrorType::kUser:
-      std::cout << stream_.str() << std::endl;
+      (*_p_impl->getStream(ErrorType::kUser)) << stream_.str() << std::endl;
       break;
     case ErrorType::kInfo:
-      std::cout << stream_.str() << std::endl;
+      (*_p_impl->getStream(ErrorType::kInfo)) << stream_.str() << std::endl;
       break;
     case ErrorType::kDebug:
-      std::cout << stream_.str() << std::endl;
+      (*_p_impl->getStream(ErrorType::kDebug)) << stream_.str() << std::endl;
       break;
     default:
       LOG(FATAL) << "Unknow verbosity: " << static_cast<int>(error_type_);
