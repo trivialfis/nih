@@ -17,9 +17,17 @@ class UriScheme {
   using RegistryT = RegistryEntry<UriScheme*(Uri const&, std::string flags)>;
 
  public:
-  std::string const& str() { return _name; }
+  UriScheme() = delete;
+  UriScheme(std::string name) : _name{std::move(name)} {}
+
   virtual UriScheme& write(std::string input) = 0;
+  virtual UriScheme& write(char* input, size_t size) = 0;
   virtual UriScheme& read(std::string* output, size_t size) = 0;
+  virtual UriScheme& read(char* output, size_t size) = 0;
+
+  virtual void flush() = 0;
+
+  virtual std::string const& str() { return _name; }
 
   static UriScheme* create(std::string scheme, Uri const * const);
   static RegistryT& registry(
@@ -58,6 +66,9 @@ class Uri {
   std::string const& host() const {
     return _host_str;
   }
+  std::shared_ptr<UriScheme> schemeObj() const {
+    return _scheme;
+  }
 
   bool isValid() { return _is_valid; }
   bool isAbsolute() { return true; }
@@ -68,10 +79,23 @@ class Uri {
     _scheme->write(input);
     return *this;
   }
+  Uri& write(char* input, size_t size) {
+    initialize();
+    return *this;
+  }
   Uri& read(std::string* output, size_t size) {
     initialize();
     _scheme->read(output, size);
     return *this;
+  }
+  Uri& read(char* output, size_t size) {
+    initialize();
+    return *this;
+  }
+
+  void flush() {
+    initialize();
+    _scheme->flush();
   }
 
   std::string const& flags() const { return _flags; }
@@ -87,9 +111,13 @@ class FileScheme : public UriScheme {
   FileScheme(Uri const& uri, std::string flags);
   ~FileScheme();
   UriScheme& write(std::string input) override;
+  UriScheme& write(char* input, size_t size) override;
   UriScheme& read(std::string* output, size_t size) override;
+  UriScheme& read(char* output, size_t size) override;
 
-  FILE* getDescriptor() { return _fd; }
+  void flush() override;
+
+  FILE* descriptor() { return _fd; }
 };
 
 extern Uri StdOut;

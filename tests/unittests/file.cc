@@ -10,9 +10,9 @@ TEST(FileScheme, Std) {
   ASSERT_EQ(output, "I'm std::cout.");
 
   testing::internal::CaptureStderr();
-  StdErr.write("I'm std::cerr.");
+  StdErr.write("I'm std::cerr.\n").flush();
   output = testing::internal::GetCapturedStderr();
-  ASSERT_EQ(output, "I'm std::cerr.");
+  ASSERT_EQ(output, "I'm std::cerr.\n");
 }
 
 }  // namespace nih

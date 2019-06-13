@@ -40,6 +40,7 @@ install(FILES
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/primitives.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/random.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/range.hh"
+  "${CMAKE_CURRENT_LIST_DIR}/include/nih/registry.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/strings.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/singleton.hh"
   "${CMAKE_CURRENT_LIST_DIR}/include/nih/threads.hh"
