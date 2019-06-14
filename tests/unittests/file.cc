@@ -4,15 +4,22 @@
 namespace nih {
 
 TEST(FileScheme, Std) {
-  testing::internal::CaptureStdout();
-  StdOut.write("I'm std::cout.");
-  auto output = testing::internal::GetCapturedStdout();
-  ASSERT_EQ(output, "I'm std::cout.");
+  {
+    auto out {CapturedStream(STDOUT_FILENO)};
+    StdOut.write("I'm std::cout.\n");
+    auto output = out.getCapturedString();
+    ASSERT_EQ(output, "I'm std::cout.\n");
+  }
 
-  testing::internal::CaptureStderr();
-  StdErr.write("I'm std::cerr.\n").flush();
-  output = testing::internal::GetCapturedStderr();
-  ASSERT_EQ(output, "I'm std::cerr.\n");
+  {
+    auto err {CapturedStream(STDERR_FILENO)};
+    StdErr.write("I'm std::cerr.\n").flush();
+    auto output = err.getCapturedString();
+    ASSERT_EQ(output, "I'm std::cerr.\n");
+  }
+
+  ASSERT_TRUE(isTTY(StdOut));
+  ASSERT_TRUE(isTTY(StdErr));
 }
 
 }  // namespace nih

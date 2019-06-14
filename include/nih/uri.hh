@@ -106,6 +106,8 @@ class FileScheme : public UriScheme {
   std::string _path;
   std::string _flags;
   FILE* _fd;
+ protected:
+  FileScheme(Uri const& uri, std::string scheme, FILE* fd);
 
  public:
   FileScheme(Uri const& uri, std::string flags);
@@ -123,6 +125,28 @@ class FileScheme : public UriScheme {
 extern Uri StdOut;
 extern Uri StdErr;
 extern Uri StdIn;
+
+bool isTTY(Uri const& uri);
+
+template <typename Type>
+std::string str(Type value) {
+  return std::to_string(value);
+}
+
+// Adopted from googletest.
+class CapturedStream {
+ public:
+  explicit CapturedStream(int fd);
+  ~CapturedStream();
+
+  std::string getCapturedString();
+
+ private:
+  const int _fd;  // A stream to capture.
+  int _uncaptured_fd;
+  // Name of the temporary file holding the stderr output.
+  std::string _filename;
+};
 
 }  // namespace nih
 
