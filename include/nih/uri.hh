@@ -58,8 +58,45 @@ class Uri {
     }
   }
 
+  template <typename Comp>
+  static bool compare(Uri const& lhs, Uri const& rhs, Comp comp) {
+    if (comp(lhs.scheme(), rhs.scheme())) {
+      return true;
+    }
+    if (comp(lhs.host(), rhs.host())) {
+      return true;
+    }
+    return false;
+  }
+
  public:
   Uri(std::string uri, std::string flags);
+  Uri(Uri const& that) = default;
+  Uri(Uri&& that) = default;
+
+  Uri& operator=(Uri const& that) {
+    this->_uri = that._uri;
+    this->_scheme_str = that._scheme_str;
+    this->_host_str = that._host_str;
+    this->_flags = that._flags;
+    this->_is_valid = that._is_valid;
+    this->_code = that._code;
+
+    this->_scheme = that._scheme;
+    return *this;
+  }
+  Uri& operator=(Uri&& that) {
+    this->_uri = std::move(that._uri);
+    this->_scheme_str = std::move(that._scheme_str);
+    this->_host_str = std::move(that._host_str);
+    this->_flags = std::move(that._flags);
+    this->_is_valid = that._is_valid;
+    this->_code = that._code;
+
+    this->_scheme = std::move(that._scheme);
+    return *this;
+  }
+
   std::string const& scheme() const {
     return _scheme_str;
   }
@@ -96,6 +133,35 @@ class Uri {
   void flush() {
     initialize();
     _scheme->flush();
+  }
+
+  bool operator<(Uri const& that) const {
+    return compare(*this, that,
+                   [](std::string const& l, std::string const& r){
+                     return l < r;
+                   });
+  }
+  bool operator<=(Uri const& that) const {
+    return compare(*this, that,
+                   [](std::string const& l, std::string const& r){
+                     return l <= r;
+                   });
+  }
+  bool operator>(Uri const& that) const {
+    return !(*this <= that);
+  }
+  bool operator>=(Uri const& that) const {
+    return !(*this < that);
+  }
+
+  bool operator==(Uri const& that) const {
+    return compare(*this, that,
+                   [](std::string const& l, std::string const& r){
+                     return l == r;
+                   });
+  }
+  bool operator!=(Uri const& that) const {
+    return !(*this == that);
   }
 
   std::string const& flags() const { return _flags; }

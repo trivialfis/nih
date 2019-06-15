@@ -25,18 +25,28 @@
 #include "nih/logging.hh"
 #include "nih/threads.hh"
 #include "nih/memory.hh"
+#include "nih/uri.hh"
 
 namespace nih {
 
 struct Colorize {
-  bool _is_tty;
+  bool _is_tty {false};
 
+ public:
   enum Color {
     kRed,
     kYellow,
     kWhite
   };
+
+  Colorize(Uri*uri) {
+    _is_tty = isTTY(*uri);
+  }
   std::string operator()(Color c, std::string const& msg) {
+    if (_is_tty) {
+      return msg;
+    }
+
     std::string reset = "\u001b[0m";
     switch (c) {
       case kRed:
@@ -54,18 +64,34 @@ struct Colorize {
 
 class LogImpl {
   ThreadStore<std::string> _names;
-  std::map<Log::ErrorType, std::ostream*> _out_streams;
+  std::map<Log::ErrorType, Uri> _out_uris;
+
+  void checkKnownError(Log::ErrorType type) const {
+    if (_out_uris.find(type) == _out_uris.cend()) {
+      std::cerr << "Unknow Error Type: " << static_cast<uint8_t>(type) << std::endl;
+      abort();
+    }
+  }
 
  public:
   LogImpl() {
-    using E = Log::ErrorType;
-    // Default streams
-    _out_streams[E::kWarning] = &std::cerr;
-    _out_streams[E::kError] = &std::cerr;
-    _out_streams[E::kUser] = &std::cout;
-    _out_streams[E::kInfo] = &std::cout;
-    _out_streams[E::kDebug] = &std::cout;
+    reset();
   }
+
+  void reset() {
+    _out_uris.clear();
+    _names.clear();
+    using E = Log::ErrorType;
+    // Default uris
+    _out_uris.emplace(E::kFatal, StdErr);
+    _out_uris.emplace(E::kUserError, StdErr);
+    _out_uris.emplace(E::kWarning, StdErr);
+    _out_uris.emplace(E::kError, StdErr);
+    _out_uris.emplace(E::kUser, StdOut);
+    _out_uris.emplace(E::kInfo, StdOut);
+    _out_uris.emplace(E::kDebug, StdOut);
+  }
+
   void setThreadName(std::string name) {
     _names.setCurrentThread(std::move(name));
   }
@@ -75,6 +101,7 @@ class LogImpl {
     }
     return "";
   }
+
   std::string str() {
     std::string name = this->getThreadName();
     if (name.length() != 0) {
@@ -83,15 +110,14 @@ class LogImpl {
     return name;
   }
 
-  std::ostream* getStream(Log::ErrorType type) const {
-    if (_out_streams.find(type) == _out_streams.cend()) {
-      std::cerr << "Unknow Error Type: " << static_cast<uint8_t>(type) << std::endl;
-      abort();
-    }
-    return _out_streams.at(type);
+  void uri(Log::ErrorType type, Uri uri) {
+    checkKnownError(type);
+    _out_uris.at(type) = uri;
   }
-  void setStream(Log::ErrorType type, std::ostream* stream) {
-    _out_streams.at(type) = stream;
+
+  Uri* uri(Log::ErrorType type) {
+    checkKnownError(type);
+    return &(_out_uris.at(type));
   }
 };
 
@@ -134,25 +160,33 @@ void Log::setThreadName(std::string name) {
   impl()->setThreadName(name);
 }
 
-void Log::setStream(std::ostream* stream, ErrorType type) {
-  impl()->setStream(type, stream);
+void Log::setUri(ErrorType type, Uri uri) {
+  impl()->uri(type, uri);
+}
+
+void Log::reset() {
+  impl()->reset();
 }
 
 std::stringstream& Log::fatal() {
   error_type_ = ErrorType::kFatal;
-  stream_ << impl()->str() << Colorize{}(Colorize::kRed, "[FATAL]") << ": ";
+  stream_ << impl()->str() <<
+      Colorize{impl()->uri(ErrorType::kFatal)}(Colorize::kRed, "[FATAL]") << ": ";
+  std::cout << "fatal sstream: " << stream_.str() << std::endl;
   return stream_;
 }
 
 std::stringstream& Log::error() {
   error_type_ = ErrorType::kError;
-  stream_ << impl()->str() << Colorize{}(Colorize::kRed, "[ERROR]") << ": ";
+  stream_ << impl()->str() <<
+      Colorize{impl()->uri(ErrorType::kError)}(Colorize::kRed, "[ERROR]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::userError() {
   error_type_ = ErrorType::kUserError;
-  stream_ << impl()->str() << Colorize{}(Colorize::kRed, "[USER ERROR]") << ": ";
+  stream_ << impl()->str() <<
+      Colorize{impl()->uri(ErrorType::kUser)}(Colorize::kRed, "[USER ERROR]") << ": ";
   return stream_;
 }
 
@@ -164,13 +198,15 @@ std::stringstream& Log::user() {
 
 std::stringstream& Log::warning() {
   error_type_ = ErrorType::kWarning;
-  stream_ << impl()->str() << Colorize{}(Colorize::kYellow, "[WARNING]") << ": ";
+  stream_ << impl()->str() <<
+      Colorize{impl()->uri(ErrorType::kWarning)}(Colorize::kYellow, "[WARNING]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::info() {
   error_type_ = ErrorType::kInfo;
-  stream_ << impl()->str() << Colorize{}(Colorize::kWhite, "[INFO]") << ": ";
+  stream_ << impl()->str() <<
+      Colorize{impl()->uri(ErrorType::kInfo)}(Colorize::kWhite, "[INFO]") << ": ";
   return stream_;
 }
 
@@ -219,9 +255,11 @@ std::stringstream& Log::log(std::string msg, ErrorType et) {
 }
 
 Log::~Log() noexcept(false) {
+  // stream_ << '\n';
   switch (error_type_){
     // throw
     case ErrorType::kFatal:
+      std::cerr << "throw: " << stream_.str() << std::endl;
       throw FatalError(stream_.str() + "\n");
       break;
     case ErrorType::kUserError:
@@ -236,19 +274,19 @@ Log::~Log() noexcept(false) {
   switch (error_type_) {
     // non throw
     case ErrorType::kWarning:
-      (*impl()->getStream(ErrorType::kWarning)) << stream_.str() << std::endl;
+      impl()->uri(ErrorType::kWarning)->write(stream_.str()).flush();
       break;
     case ErrorType::kError:
-      (*impl()->getStream(ErrorType::kError)) << stream_.str() << std::endl;
+      impl()->uri(ErrorType::kError)->write(stream_.str()).flush();
       break;
     case ErrorType::kUser:
-      (*impl()->getStream(ErrorType::kUser)) << stream_.str() << std::endl;
+      impl()->uri(ErrorType::kUser)->write(stream_.str()).flush();
       break;
     case ErrorType::kInfo:
-      (*impl()->getStream(ErrorType::kInfo)) << stream_.str() << std::endl;
+      impl()->uri(ErrorType::kInfo)->write(stream_.str()).flush();
       break;
     case ErrorType::kDebug:
-      (*impl()->getStream(ErrorType::kDebug)) << stream_.str() << std::endl;
+      impl()->uri(ErrorType::kDebug)->write(stream_.str()).flush();
       break;
     default:
       LOG(FATAL) << "Unknow verbosity: " << static_cast<int>(error_type_);

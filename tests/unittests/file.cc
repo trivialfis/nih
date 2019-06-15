@@ -18,8 +18,8 @@ TEST(FileScheme, Std) {
     ASSERT_EQ(output, "I'm std::cerr.\n");
   }
 
-  ASSERT_TRUE(isTTY(StdOut));
-  ASSERT_TRUE(isTTY(StdErr));
+  ASSERT_EQ(isTTY(StdOut), isatty(fileno(stdout)));
+  ASSERT_EQ(isTTY(StdErr), isatty(fileno(stderr)));
 }
 
 }  // namespace nih

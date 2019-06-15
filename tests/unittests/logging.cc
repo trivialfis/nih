@@ -1,12 +1,14 @@
 #include <gtest/gtest.h>
 #include <cstdio>
 #include <fstream>
+
 #include "nih/logging.hh"
+#include "nih/uri.hh"
 
 namespace nih {
 
 TEST(Logging, Basic) {
-  ASSERT_THROW((LOG(FATAL) << "Fatal"), NIHError);
+  ASSERT_THROW({LOG(FATAL) << "Fatal";}, NIHError);
 
   try {
     LOG(FATAL) << "Fatal";
@@ -26,35 +28,35 @@ TEST(Logging, Basic) {
 
   std::string output;
   {
-    testing::internal::CaptureStderr();
+    auto capture {CapturedStream(STDERR_FILENO)};
     LOG(WARNING) << "Log warning.";
-    output = testing::internal::GetCapturedStderr();
+    output = capture.getCapturedString();
     ASSERT_NE(output.find("Log warning."), std::string::npos);
     ASSERT_NE(output.find("[WARNING]"), std::string::npos);
   }
 
   {
-    testing::internal::CaptureStderr();
+    auto capture {CapturedStream(STDERR_FILENO)};
     LOG(ERROR) << "Log error.";
-    output = testing::internal::GetCapturedStderr();
+    output = capture.getCapturedString();
     ASSERT_NE(output.find("Log error."), std::string::npos);
     ASSERT_NE(output.find("[ERROR]"), std::string::npos);
   }
 
   {
     Log::setGlobalVerbosity(Log::ErrorType::kInfo);
-    testing::internal::CaptureStdout();
+    auto capture {CapturedStream(STDOUT_FILENO)};
     LOG(INFO) << "Log info.";
-    output = testing::internal::GetCapturedStdout();
+    output = capture.getCapturedString();
     ASSERT_NE(output.find("Log info."), std::string::npos);
     ASSERT_NE(output.find("[INFO]"), std::string::npos);
   }
 
   {
     Log::setGlobalVerbosity(Log::ErrorType::kDebug);
-    testing::internal::CaptureStdout();
+    auto capture {CapturedStream(STDOUT_FILENO)};
     LOG(DEBUG) << "Log debug.";
-    output = testing::internal::GetCapturedStdout();
+    output = capture.getCapturedString();
     ASSERT_NE(output.find("Log debug."), std::string::npos);
     ASSERT_NE(output.find("[DEBUG]"), std::string::npos);
   }
@@ -62,18 +64,20 @@ TEST(Logging, Basic) {
   {
     // Don't display anything with lower verbosity
     Log::setGlobalVerbosity(Log::defaultVerbosity());
-    testing::internal::CaptureStdout();
+    auto capture {CapturedStream(STDOUT_FILENO)};
     LOG(INFO) << "Log info.";
-    output = testing::internal::GetCapturedStdout();
+    output = capture.getCapturedString();
     ASSERT_EQ(output.find("Log info."), std::string::npos);
   }
 
   Log::setGlobalVerbosity(Log::ErrorType::kInfo);
-  int var = 17;
-  testing::internal::CaptureStdout();
-  LOG_VAR(var);
-  output = testing::internal::GetCapturedStdout();
-  ASSERT_NE(output.find("17"), std::string::npos);
+  {
+    int var = 17;
+    auto capture {CapturedStream(STDOUT_FILENO)};
+    LOG_VAR(var);
+    output = capture.getCapturedString();
+    ASSERT_NE(output.find("17"), std::string::npos);
+  }
 }
 
 TEST(Logging, Thread) {
@@ -92,11 +96,10 @@ TEST(Logging, Thread) {
   ASSERT_EQ(output.find("Thread"), std::string::npos);
 }
 
-TEST(Logging, Stream) {
+TEST(Logging, Uri) {
   Log::setGlobalVerbosity(Log::ErrorType::kDebug);
-  std::ofstream fout("/tmp/nih-test-logging");
-  ASSERT_TRUE(fout);
-  Log::setStream(&fout, Log::ErrorType::kDebug);
+  Uri tmp("file:/tmp/nih-test-logging", "w");
+  Log::setUri(Log::ErrorType::kDebug, tmp);
 
   LOG(DEBUG) << "Debug";
 
@@ -106,6 +109,8 @@ TEST(Logging, Stream) {
   std::getline(fin, out);
   ASSERT_NE(out.find("Debug"), std::string::npos);
   std::remove("/tmp/nih-test-logging");
+
+  Log::reset();
 }
 
 }  // namespace nih

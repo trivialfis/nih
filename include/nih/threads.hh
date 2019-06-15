@@ -24,6 +24,10 @@ class ThreadStore {
   void setCurrentThread(Type&& value) {
     _store[std::this_thread::get_id()] = std::forward<Type>(value);
   }
+
+  void clear() {
+    _store.clear();
+  }
 };
 
 }  // namespace nih

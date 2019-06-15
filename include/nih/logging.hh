@@ -25,6 +25,7 @@
 #include <sstream>
 
 #include "errors.hh"
+#include "uri.hh"
 
 namespace nih {
 
@@ -43,8 +44,9 @@ class Log {
   } error_type_;
 
  private:
-  static ErrorType global_;
   std::stringstream stream_;
+
+  static ErrorType global_;
 
   static LogImpl* impl();
   static ErrorType toType(std::string str);
@@ -61,6 +63,7 @@ class Log {
 
  public:
   Log();
+  virtual ~Log() noexcept(false);
 
   static void setGlobalVerbosity(std::string value);
   static void setGlobalVerbosity(ErrorType et) { global_ = et; }
@@ -73,10 +76,9 @@ class Log {
   virtual std::stringstream& log(
       std::string msg, ErrorType et=defaultVerbosity());
 
-  virtual ~Log() noexcept(false);
-
   static void setThreadName(std::string name);
-  static void setStream(std::ostream* stream, ErrorType type);
+  static void setUri(ErrorType, Uri uri);
+  static void reset();
 };
 
 }  // namespace nih
