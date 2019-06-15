@@ -3,8 +3,19 @@ project(NIH
   LANGUAGES CXX
   VERSION 0.0.0)
 
+list(APPEND CMAKE_MODULE_PATH "${NIH_SOURCE_DIR}/cmake/modules")
+
 option(ENABLE_TESTS "Enable GTest" ON)
+option(ENABLE_SANITIZERS "Enable sanitizers" OFF)
+set(ENABLED_SANITIZERS "address" CACHE STRING
+  "Semicolon separated list of sanitizer names. E.g 'address;leak'. Supported sanitizers are
+address, leak and thread.")
 option(ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
+
+if (ENABLE_SANITIZERS)
+  include(cmake/sanitizer.cmake)
+  enable_sanitizers("${ENABLED_SANITIZERS}")
+endif (ENABLE_SANITIZERS)
 
 if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
   message(FATAL "In-source builds not supported.")
