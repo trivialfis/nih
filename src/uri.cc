@@ -1,3 +1,20 @@
+/* This file is part of NIH.
+ *
+ * Copyright (c) 2019 Jiaming Yuan <jm.yuan@outlook.com>
+ *
+ * NIH is free software: you can redistribute it and/or modify it under the
+ * terms of the Lesser GNU General Public License as published by the Free
+ * Software Foundation, either version 3 of the License, or (at your option) any
+ * later version.
+ *
+ * NIH is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE.  See the Lesser GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the Lesser GNU General Public License
+ * along with NIH.  If not, see <https://www.gnu.org/licenses/>.
+ */
 #include <map>
 
 #include <nih/errors.hh>
@@ -28,6 +45,31 @@ Uri::Uri(std::string uri, std::string flags)
     _host_str = res[1];
   }
 }
+
+Uri& Uri::operator=(Uri const& that) {
+  this->_uri = that._uri;
+  this->_scheme_str = that._scheme_str;
+  this->_host_str = that._host_str;
+  this->_flags = that._flags;
+  this->_is_valid = that._is_valid;
+  this->_code = that._code;
+
+  this->_scheme = that._scheme;
+  return *this;
+}
+
+Uri& Uri::operator=(Uri&& that) {
+  this->_uri = std::move(that._uri);
+  this->_scheme_str = std::move(that._scheme_str);
+  this->_host_str = std::move(that._host_str);
+  this->_flags = std::move(that._flags);
+  this->_is_valid = that._is_valid;
+  this->_code = that._code;
+
+  this->_scheme = std::move(that._scheme);
+  return *this;
+}
+
 
 UriScheme* UriScheme::create(std::string scheme, Uri const * const uri){
   auto registry = Registry<RegistryT>::getRegistry();
