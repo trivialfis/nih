@@ -172,7 +172,6 @@ std::stringstream& Log::fatal() {
   error_type_ = ErrorType::kFatal;
   stream_ << impl()->str() <<
       Colorize{impl()->uri(ErrorType::kFatal)}(Colorize::kRed, "[FATAL]") << ": ";
-  std::cout << "fatal sstream: " << stream_.str() << std::endl;
   return stream_;
 }
 
@@ -255,11 +254,10 @@ std::stringstream& Log::log(std::string msg, ErrorType et) {
 }
 
 Log::~Log() noexcept(false) {
-  // stream_ << '\n';
+  stream_ << '\n';
   switch (error_type_){
     // throw
     case ErrorType::kFatal:
-      std::cerr << "throw: " << stream_.str() << std::endl;
       throw FatalError(stream_.str() + "\n");
       break;
     case ErrorType::kUserError:

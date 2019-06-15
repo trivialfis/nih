@@ -83,11 +83,11 @@ FileScheme::~FileScheme() {
 
 class StdScheme : public FileScheme {
   FILE* dispatch(std::string descriptor) {
-    if (descriptor == "/dev/stdout") {
+    if (descriptor == "out") {
       return stdout;
-    } else if (descriptor == "/dev/stderr") {
+    } else if (descriptor == "err") {
       return stderr;
-    } else if (descriptor == "/dev/stdin") {
+    } else if (descriptor == "in") {
       return stdin;
     } else {
       throw NIHError("Unknown device: " + descriptor);
@@ -100,9 +100,9 @@ class StdScheme : public FileScheme {
       FileScheme(uri, "fd", this->dispatch(uri.host())) {}
 };
 
-Uri StdOut = Uri{"std:/dev/stdout", "w"};
-Uri StdIn  = Uri{"std:/dev/stdin" , "r"};
-Uri StdErr = Uri{"std:/dev/stderr", "w"};
+Uri StdOut = Uri{"std:out", "w"};
+Uri StdErr = Uri{"std:err", "w"};
+Uri StdIn  = Uri{"std:in" , "r"};
 
 bool isTTY(Uri const& uri) {
   if (uri.scheme() == "std") {

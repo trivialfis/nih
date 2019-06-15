@@ -20,9 +20,7 @@
 
 #include <cinttypes>
 #include <string>
-#include <map>
 #include <memory>
-#include <nih/singleton.hh>
 #include <nih/registry.hh>
 
 namespace nih {
@@ -105,34 +103,16 @@ class Uri {
   }
 
   bool isValid() { return _is_valid; }
-  bool isAbsolute() { return true; }
-  bool isOpaque() { return true; }
+  bool isAbsolute() { return true; }  // FIXME
+  bool isOpaque() { return true; }    // FIXME
 
-  Uri& write(std::string const& input) {
-    initialize();
-    _scheme->write(input);
-    return *this;
-  }
-  Uri& write(char* input, size_t size) {
-    initialize();
-    // FIXME
-    return *this;
-  }
-  Uri& read(std::string* output, size_t size) {
-    initialize();
-    _scheme->read(output, size);
-    return *this;
-  }
-  Uri& read(char* output, size_t size) {
-    initialize();
-    // FIXME
-    return *this;
-  }
+  Uri& write(std::string const& input);
+  Uri& write(char* input, size_t size);
 
-  void flush() {
-    initialize();
-    _scheme->flush();
-  }
+  Uri& read(std::string* output, size_t size);
+  Uri& read(char* output, size_t size);
+
+  Uri& flush();
 
   bool operator<(Uri const& that) const {
     return compare(*this, that,

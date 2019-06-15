@@ -70,6 +70,33 @@ Uri& Uri::operator=(Uri&& that) {
   return *this;
 }
 
+Uri& Uri::write(std::string const& input) {
+  initialize();
+  _scheme->write(input);
+  return *this;
+}
+Uri& Uri::write(char* input, size_t size) {
+  initialize();
+  _scheme->write(input, size);
+  return *this;
+}
+
+Uri& Uri::read(std::string* output, size_t size) {
+  initialize();
+  _scheme->read(output, size);
+  return *this;
+}
+Uri& Uri::read(char* output, size_t size) {
+  initialize();
+  _scheme->read(output, size);
+  return *this;
+}
+
+Uri& Uri::flush() {
+  initialize();
+  _scheme->flush();
+  return *this;
+}
 
 UriScheme* UriScheme::create(std::string scheme, Uri const * const uri){
   auto registry = Registry<RegistryT>::getRegistry();
