@@ -31,8 +31,6 @@ namespace nih {
 class LogImpl;
 
 class Log {
-  static std::unique_ptr<LogImpl> _p_impl;
-
  public:
   enum class ErrorType : uint8_t {
     kFatal = 0,
@@ -48,6 +46,7 @@ class Log {
   static ErrorType global_;
   std::stringstream stream_;
 
+  static LogImpl* impl();
   static ErrorType toType(std::string str);
 
   virtual std::stringstream& fatal();

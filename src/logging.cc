@@ -95,11 +95,14 @@ class LogImpl {
   }
 };
 
-std::unique_ptr<LogImpl> Log::_p_impl{makeUnique<LogImpl>()};
-
 Log::Log() : error_type_{defaultVerbosity()} {}
 
 Log::ErrorType Log::global_ = Log::defaultVerbosity();
+
+LogImpl* Log::impl() {
+  static LogImpl impl;
+  return &impl;
+}
 
 Log::ErrorType Log::toType(std::string str) {
   if (str == "Fatal") {
@@ -128,52 +131,52 @@ void Log::setGlobalVerbosity(std::string value) {
 }
 
 void Log::setThreadName(std::string name) {
-  _p_impl->setThreadName(name);
+  impl()->setThreadName(name);
 }
 
 void Log::setStream(std::ostream* stream, ErrorType type) {
-  _p_impl->setStream(type, stream);
+  impl()->setStream(type, stream);
 }
 
 std::stringstream& Log::fatal() {
   error_type_ = ErrorType::kFatal;
-  stream_ << _p_impl->str() << Colorize{}(Colorize::kRed, "[FATAL]") << ": ";
+  stream_ << impl()->str() << Colorize{}(Colorize::kRed, "[FATAL]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::error() {
   error_type_ = ErrorType::kError;
-  stream_ << _p_impl->str() << Colorize{}(Colorize::kRed, "[ERROR]") << ": ";
+  stream_ << impl()->str() << Colorize{}(Colorize::kRed, "[ERROR]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::userError() {
   error_type_ = ErrorType::kUserError;
-  stream_ << _p_impl->str() << Colorize{}(Colorize::kRed, "[USER ERROR]") << ": ";
+  stream_ << impl()->str() << Colorize{}(Colorize::kRed, "[USER ERROR]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::user() {
   error_type_ = ErrorType::kUser;
-  stream_ << _p_impl->str();
+  stream_ << impl()->str();
   return stream_;
 }
 
 std::stringstream& Log::warning() {
   error_type_ = ErrorType::kWarning;
-  stream_ << _p_impl->str() << Colorize{}(Colorize::kYellow, "[WARNING]") << ": ";
+  stream_ << impl()->str() << Colorize{}(Colorize::kYellow, "[WARNING]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::info() {
   error_type_ = ErrorType::kInfo;
-  stream_ << _p_impl->str() << Colorize{}(Colorize::kWhite, "[INFO]") << ": ";
+  stream_ << impl()->str() << Colorize{}(Colorize::kWhite, "[INFO]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::debug() {
   error_type_ = ErrorType::kDebug;
-  stream_ << _p_impl->str() << "[DEBUG]: ";
+  stream_ << impl()->str() << "[DEBUG]: ";
   return stream_;
 }
 
@@ -233,19 +236,19 @@ Log::~Log() noexcept(false) {
   switch (error_type_) {
     // non throw
     case ErrorType::kWarning:
-      (*_p_impl->getStream(ErrorType::kWarning)) << stream_.str() << std::endl;
+      (*impl()->getStream(ErrorType::kWarning)) << stream_.str() << std::endl;
       break;
     case ErrorType::kError:
-      (*_p_impl->getStream(ErrorType::kError)) << stream_.str() << std::endl;
+      (*impl()->getStream(ErrorType::kError)) << stream_.str() << std::endl;
       break;
     case ErrorType::kUser:
-      (*_p_impl->getStream(ErrorType::kUser)) << stream_.str() << std::endl;
+      (*impl()->getStream(ErrorType::kUser)) << stream_.str() << std::endl;
       break;
     case ErrorType::kInfo:
-      (*_p_impl->getStream(ErrorType::kInfo)) << stream_.str() << std::endl;
+      (*impl()->getStream(ErrorType::kInfo)) << stream_.str() << std::endl;
       break;
     case ErrorType::kDebug:
-      (*_p_impl->getStream(ErrorType::kDebug)) << stream_.str() << std::endl;
+      (*impl()->getStream(ErrorType::kDebug)) << stream_.str() << std::endl;
       break;
     default:
       LOG(FATAL) << "Unknow verbosity: " << static_cast<int>(error_type_);
