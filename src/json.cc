@@ -15,293 +15,85 @@
  * You should have received a copy of the Lesser GNU General Public License
  * along with NIH.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include <cmath>
 #include <locale>
 #include <sstream>
 
+#include "nih/config.hh"
 #include "nih/json.hh"
+#include "nih/json_io.hh"
+#include "nih/logging.hh"
 
 namespace nih {
-namespace json {
-
-class JsonWriter {
-  static constexpr size_t kIndentSize = 2;
-
-  size_t n_spaces_;
-  std::ostream* stream_;
-
-  std::locale original_locale;
-
- public:
-  JsonWriter(std::ostream* stream) : n_spaces_{0}, stream_{stream} {
-    original_locale = std::locale("");
-    stream_->imbue(std::locale("en_US.UTF-8"));
-  }
-  ~JsonWriter() {
-    stream_->imbue(original_locale);
-  }
-
-  void newLine() {
-    *stream_ << u8"\n" << std::string(n_spaces_, ' ');
-  }
-
-  void beginIndent() {
-    n_spaces_ += kIndentSize;
-  }
-  void endIndent() {
-    n_spaces_ -= kIndentSize;
-  }
-
-  void write(std::string str) {
-    *stream_ << str;
-  }
-
-  void save(Json json) {
-    json.ptr_->save(this);
-  }
-};
-
-class JsonReader {
- private:
-  struct SourceLocation {
-    int cl_;      // current line
-    int cc_;      // current column
-    size_t pos_;  // current position in raw_str_
-
-   public:
-    SourceLocation() : cl_(0), cc_(0), pos_(0) {}
-
-    int line() const { return cl_;  }
-    int col()  const { return cc_;  }
-    size_t pos()  const { return pos_; }
-
-    SourceLocation& forward(char c=0) {
-      if (c == '\n') {
-        cc_ = 0;
-        cl_++;
-      } else {
-        cc_++;
-      }
-      pos_++;
-      return *this;
-    }
-  } cursor_;
-
-  std::string raw_str_;
-
- private:
-  void skipSpaces();
-
-  char getNextChar() {
-    if (cursor_.pos() == raw_str_.size()) {
-      return -1;
-    }
-    char ch = raw_str_[cursor_.pos()];
-    cursor_.forward();
-    return ch;
-  }
-
-  char peekNextChar() {
-    if (cursor_.pos() == raw_str_.size()) {
-      return -1;
-    }
-    char ch = raw_str_[cursor_.pos()];
-    return ch;
-  }
-
-  char getNextNonSpaceChar() {
-    skipSpaces();
-    return getNextChar();
-  }
-
-  char getChar(char c) {
-    char result = getNextNonSpaceChar();
-    if (result != c) { expect(c); }
-    return result;
-  }
-
-  void error(std::string msg) const {
-    std::istringstream str_s(raw_str_);
-
-    msg += ", at ("
-           + std::to_string(cursor_.line()) + ", "
-           + std::to_string(cursor_.col()) + ")\n";
-    std::string line;
-    int line_count = 0;
-    while (std::getline(str_s, line) && line_count < cursor_.line()) {
-      line_count++;
-    }
-    msg+= line += '\n';
-    std::string spaces (cursor_.col(), ' ');
-    msg+= spaces + "^\n";
-
-    throw std::runtime_error(msg);
-  }
-
-  // Report expected character
-  void expect(char c) {
-    std::string msg = "Expecting: \"";
-    msg += std::to_string(c)
-           + "\", got: \"" + raw_str_[cursor_.pos()-1] + "\"\n"; // FIXME
-    error(msg);
-  }
-
-  Json parseString();
-  Json parseObject();
-  Json parseArray();
-  Json parseNumber();
-  Json parseBoolean();
-
-  Json parse() {
-    while (true) {
-      skipSpaces();
-      char c = peekNextChar();
-      if (c == -1) { break; }
-
-      if (c == '{') {
-        return parseObject();
-      } else if ( c == '[' ) {
-        return parseArray();
-      } else if ( c == '-' || std::isdigit(c)) {
-        return parseNumber();
-      } else if ( c == '\"' ) {
-        return parseString();
-      } else if ( c == 't' || c == 'f') {
-        return parseBoolean();
-      } else {
-        error("Unknown construct");
-      }
-    }
-    return Json();
-  }
-
- private:
-  std::locale original_locale_;
-  std::istream* stream_;
-
- public:
-  JsonReader(std::istream* stream) {
-    original_locale_ = std::locale("");
-    stream_ = stream;
-    stream->imbue(std::locale("en_US.UTF-8"));
-  }
-  ~JsonReader(){
-    stream_->imbue(original_locale_);
-  }
-
-  Json load() {
-    stream_->imbue(std::locale("en_US.UTF-8"));
-    raw_str_ = {std::istreambuf_iterator<char>(*stream_), {}};
-    Json result = parse();
-    stream_->imbue(original_locale_);
-    return result;
-  }
-};
-
-// Value
-std::string Value::typeStr() const {
-  switch (kind_) {
-    case ValueKind::String: return "String";  break;
-    case ValueKind::Number: return "Number";  break;
-    case ValueKind::Object: return "Object";  break;
-    case ValueKind::Array:  return "Array";   break;
-    case ValueKind::Boolean:return "Boolean"; break;
-    case ValueKind::Null:   return "Null";    break;
-  }
-  return "";
+void JsonWriter::Save(Json json) {
+  json.ptr_->Save(this);
 }
 
-// Only used for keeping old compilers happy about non-reaching return
-// statement.
-Json& dummyJsonObject () {
-  static Json obj;
-  return obj;
+void JsonWriter::Visit(JsonArray const* arr) {
+  this->Write("[");
+  auto const& vec = arr->getArray();
+  size_t size = vec.size();
+  for (size_t i = 0; i < size; ++i) {
+    auto const& value = vec[i];
+    this->Save(value);
+    if (i != size-1) { Write(", "); }
+  }
+  this->Write("]");
 }
 
-// Json Object
-JsonObject::JsonObject(std::map<std::string, Json> object)
-    : Value(ValueKind::Object), object_{std::move(object)} {}
-
-Json& JsonObject::operator[](std::string const & key) {
-  return object_[key];
-}
-
-Json& JsonObject::operator[](int ind) {
-  throw std::runtime_error(
-      "Object of type " +
-      Value::typeStr() + " can not be indexed by Integer.");
-  return dummyJsonObject();
-}
-
-bool JsonObject::operator==(Value const& rhs) const {
-  if(!IsA<JsonObject>(&rhs)) { return false; }
-  return object_ == Cast<JsonObject const>(&rhs)->getObject();
-}
-
-Value & JsonObject::operator=(Value const &rhs) {
-  JsonObject const* casted = Cast<JsonObject const>(&rhs);
-  object_ = casted->getObject();
-  return *this;
-}
-
-void JsonObject::save(JsonWriter* writer) {
-  writer->write("{");
-  writer->beginIndent();
-  writer->newLine();
+void JsonWriter::Visit(JsonObject const* obj) {
+  this->Write("{");
+  this->BeginIndent();
+  this->NewLine();
 
   size_t i = 0;
-  size_t size = object_.size();
+  size_t size = obj->getObject().size();
 
-  for (auto& value : object_) {
-    writer->write("\"" + value.first + "\": ");
-    writer->save(value.second);
+  for (auto& value : obj->getObject()) {
+    this->Write("\"" + value.first + "\": ");
+    this->Save(value.second);
 
     if (i != size-1) {
-      writer->write(",");
-      writer->newLine();
+      this->Write(",");
+      this->NewLine();
     }
     i++;
   }
-  writer->endIndent();
-  writer->newLine();
-  writer->write("}");
+  this->EndIndent();
+  this->NewLine();
+  this->Write("}");
 }
 
-// Json String
-Json& JsonString::operator[](std::string const & key) {
-  throw std::runtime_error(
-      "Object of type " +
-      Value::typeStr() + " can not be indexed by string.");
-  return dummyJsonObject();
+void JsonWriter::Visit(JsonNumber const* num) {
+  convertor_ << num->getNumber();
+  auto const& str = convertor_.str();
+  this->Write(StringView{str.c_str(), str.size()});
+  convertor_.str("");
 }
 
-Json& JsonString::operator[](int ind) {
-  throw std::runtime_error(
-      "Object of type " +
-      Value::typeStr() + " can not be indexed by Integer, " +
-      "please try obtaining std::string first.");
-  return dummyJsonObject();
+void JsonWriter::Visit(JsonInteger const* num) {
+  convertor_ << num->getInteger();
+  auto const& str = convertor_.str();
+  this->Write(StringView{str.c_str(), str.size()});
+  convertor_.str("");
 }
 
-bool JsonString::operator==(Value const& rhs) const {
-  if (!IsA<JsonString>(&rhs)) { return false; }
-  return Cast<JsonString const>(&rhs)->getString() == str_;
+void JsonWriter::Visit(JsonNull const* null) {
+  this->Write("null");
 }
 
-Value & JsonString::operator=(Value const &rhs) {
-  JsonString const* casted = Cast<JsonString const>(&rhs);
-  str_ = casted->getString();
-  return *this;
-}
-
-// FIXME: UTF-8 parsing support.
-void JsonString::save(JsonWriter* writer) {
+void JsonWriter::Visit(JsonString const* str) {
   std::string buffer;
   buffer += '"';
-  for (size_t i = 0; i < str_.length(); i++) {
-    const char ch = str_[i];
+  auto const& string = str->getString();
+  for (size_t i = 0; i < string.length(); i++) {
+    const char ch = string[i];
     if (ch == '\\') {
-      if (i < str_.size() && str_[i+1] == 'u') buffer += "\\";
-      else buffer += "\\\\";
+      if (i < string.size() && string[i+1] == 'u') {
+        buffer += "\\";
+      } else {
+        buffer += "\\\\";
+      }
     } else if (ch == '"') {
       buffer += "\\\"";
     } else if (ch == '\b') {
@@ -324,15 +116,109 @@ void JsonString::save(JsonWriter* writer) {
     }
   }
   buffer += '"';
-  writer->write(buffer);
+  this->Write(buffer);
+}
+
+void JsonWriter::Visit(JsonBoolean const* boolean) {
+  bool val = boolean->getBoolean();
+  if (val) {
+    this->Write(u8"true");
+  } else {
+    this->Write(u8"false");
+  }
+}
+
+// Value
+std::string Value::TypeStr() const {
+  switch (kind_) {
+    case ValueKind::String:  return "String";  break;
+    case ValueKind::Number:  return "Number";  break;
+    case ValueKind::Object:  return "Object";  break;
+    case ValueKind::Array:   return "Array";   break;
+    case ValueKind::Boolean: return "Boolean"; break;
+    case ValueKind::Null:    return "Null";    break;
+    case ValueKind::Integer: return "Integer"; break;
+  }
+  return "";
+}
+
+// Only used for keeping old compilers happy about non-reaching return
+// statement.
+Json& DummyJsonObject() {
+  static Json obj;
+  return obj;
+}
+
+// Json Object
+JsonObject::JsonObject(JsonObject && that) :
+    Value(ValueKind::Object), object_{std::move(that.object_)} {}
+
+JsonObject::JsonObject(std::map<std::string, Json>&& object)
+    : Value(ValueKind::Object), object_{std::move(object)} {}
+
+Json& JsonObject::operator[](std::string const & key) {
+  return object_[key];
+}
+
+Json& JsonObject::operator[](int ind) {
+  LOG(FATAL) << "Object of type "
+             << Value::TypeStr() << " can not be indexed by Integer.";
+  return DummyJsonObject();
+}
+
+bool JsonObject::operator==(Value const& rhs) const {
+  if (!IsA<JsonObject>(&rhs)) { return false; }
+  return object_ == Cast<JsonObject const>(&rhs)->getObject();
+}
+
+Value& JsonObject::operator=(Value const &rhs) {
+  JsonObject const* casted = Cast<JsonObject const>(&rhs);
+  object_ = casted->getObject();
+  return *this;
+}
+
+void JsonObject::Save(JsonWriter* writer) {
+  writer->Visit(this);
+}
+
+// Json String
+Json& JsonString::operator[](std::string const & key) {
+  LOG(FATAL) << "Object of type "
+             << Value::TypeStr() << " can not be indexed by string.";
+  return DummyJsonObject();
+}
+
+Json& JsonString::operator[](int ind) {
+  LOG(FATAL) << "Object of type "
+             << Value::TypeStr() << " can not be indexed by Integer."
+             << "  Please try obtaining std::string first.";
+  return DummyJsonObject();
+}
+
+bool JsonString::operator==(Value const& rhs) const {
+  if (!IsA<JsonString>(&rhs)) { return false; }
+  return Cast<JsonString const>(&rhs)->getString() == str_;
+}
+
+Value & JsonString::operator=(Value const &rhs) {
+  JsonString const* casted = Cast<JsonString const>(&rhs);
+  str_ = casted->getString();
+  return *this;
+}
+
+// FIXME: UTF-8 parsing support.
+void JsonString::Save(JsonWriter* writer) {
+  writer->Visit(this);
 }
 
 // Json Array
+JsonArray::JsonArray(JsonArray && that) :
+    Value(ValueKind::Array), vec_{std::move(that.vec_)} {}
+
 Json& JsonArray::operator[](std::string const & key) {
-  throw std::runtime_error(
-      "Object of type " +
-      Value::typeStr() + " can not be indexed by string.");
-  return dummyJsonObject();
+  LOG(FATAL) << "Object of type "
+             << Value::TypeStr() << " can not be indexed by string.";
+  return DummyJsonObject();
 }
 
 Json& JsonArray::operator[](int ind) {
@@ -351,34 +237,25 @@ Value & JsonArray::operator=(Value const &rhs) {
   return *this;
 }
 
-void JsonArray::save(JsonWriter* writer) {
-  writer->write("[");
-  size_t size = vec_.size();
-  for (size_t i = 0; i < size; ++i) {
-    auto& value = vec_[i];
-    writer->save(value);
-    if (i != size-1) { writer->write(", "); }
-  }
-  writer->write("]");
+void JsonArray::Save(JsonWriter* writer) {
+  writer->Visit(this);
 }
 
 // Json Number
 Json& JsonNumber::operator[](std::string const & key) {
-  throw std::runtime_error(
-      "Object of type " +
-      Value::typeStr() + " can not be indexed by string.");
-  return dummyJsonObject();
+  LOG(FATAL) << "Object of type "
+             << Value::TypeStr() << " can not be indexed by string.";
+  return DummyJsonObject();
 }
 
 Json& JsonNumber::operator[](int ind) {
-  throw std::runtime_error(
-      "Object of type " +
-      Value::typeStr() + " can not be indexed by Integer.");
-  return dummyJsonObject();
+  LOG(FATAL) << "Object of type "
+             << Value::TypeStr() << " can not be indexed by Integer.";
+  return DummyJsonObject();
 }
 
 bool JsonNumber::operator==(Value const& rhs) const {
-  if(!IsA<JsonNumber>(&rhs)) { return false; }
+  if (!IsA<JsonNumber>(&rhs)) { return false; }
   return number_ == Cast<JsonNumber const>(&rhs)->getNumber();
 }
 
@@ -388,27 +265,53 @@ Value & JsonNumber::operator=(Value const &rhs) {
   return *this;
 }
 
-void JsonNumber::save(JsonWriter* writer) {
-  writer->write(std::to_string(this->getNumber()));
+void JsonNumber::Save(JsonWriter* writer) {
+  writer->Visit(this);
+}
+
+// Json Integer
+Json& JsonInteger::operator[](std::string const& key) {
+  LOG(FATAL) << "Object of type "
+             << Value::TypeStr() << " can not be indexed by string.";
+  return DummyJsonObject();
+}
+
+Json& JsonInteger::operator[](int ind) {
+  LOG(FATAL) << "Object of type "
+             << Value::TypeStr() << " can not be indexed by Integer.";
+  return DummyJsonObject();
+}
+
+bool JsonInteger::operator==(Value const& rhs) const {
+  if (!IsA<JsonInteger>(&rhs)) { return false; }
+  return integer_ == Cast<JsonInteger const>(&rhs)->getInteger();
+}
+
+Value & JsonInteger::operator=(Value const &rhs) {
+  JsonInteger const* casted = Cast<JsonInteger const>(&rhs);
+  integer_ = casted->getInteger();
+  return *this;
+}
+
+void JsonInteger::Save(JsonWriter* writer) {
+  writer->Visit(this);
 }
 
 // Json Null
 Json& JsonNull::operator[](std::string const & key) {
-  throw std::runtime_error(
-      "Object of type " +
-      Value::typeStr() + " can not be indexed by string.");
-  return dummyJsonObject();
+  LOG(FATAL) << "Object of type "
+             << Value::TypeStr() << " can not be indexed by string.";
+  return DummyJsonObject();
 }
 
 Json& JsonNull::operator[](int ind) {
-  throw std::runtime_error(
-      "Object of type " +
-      Value::typeStr() + " can not be indexed by Integer.");
-  return dummyJsonObject();
+  LOG(FATAL) << "Object of type "
+             << Value::TypeStr() << " can not be indexed by Integer.";
+  return DummyJsonObject();
 }
 
 bool JsonNull::operator==(Value const& rhs) const {
-  if(!IsA<JsonNull>(&rhs)) { return false; }
+  if (!IsA<JsonNull>(&rhs)) { return false; }
   return true;
 }
 
@@ -417,27 +320,25 @@ Value & JsonNull::operator=(Value const &rhs) {
   return *this;
 }
 
-void JsonNull::save(JsonWriter* writer) {
-  writer->write("null");
+void JsonNull::Save(JsonWriter* writer) {
+  writer->Write("null");
 }
 
 // Json Boolean
 Json& JsonBoolean::operator[](std::string const & key) {
-  throw std::runtime_error(
-      "Object of type " +
-      Value::typeStr() + " can not be indexed by string.");
-  return dummyJsonObject();
+  LOG(FATAL) << "Object of type "
+             << Value::TypeStr() << " can not be indexed by string.";
+  return DummyJsonObject();
 }
 
 Json& JsonBoolean::operator[](int ind) {
-  throw std::runtime_error(
-      "Object of type " +
-      Value::typeStr() + " can not be indexed by Integer.");
-  return dummyJsonObject();
+  LOG(FATAL) << "Object of type "
+             << Value::TypeStr() << " can not be indexed by Integer.";
+  return DummyJsonObject();
 }
 
 bool JsonBoolean::operator==(Value const& rhs) const {
-  if(!IsA<JsonBoolean>(&rhs)) { return false; }
+  if (!IsA<JsonBoolean>(&rhs)) { return false; }
   return boolean_ == Cast<JsonBoolean const>(&rhs)->getBoolean();
 }
 
@@ -447,34 +348,102 @@ Value & JsonBoolean::operator=(Value const &rhs) {
   return *this;
 }
 
-void JsonBoolean::save(JsonWriter *writer) {
-  if (boolean_) {
-    writer->write(u8"true");
-  } else {
-    writer->write(u8"false");
+void JsonBoolean::Save(JsonWriter *writer) {
+  writer->Visit(this);
+}
+
+size_t constexpr JsonReader::kMaxNumLength;
+
+Json JsonReader::Parse() {
+  while (true) {
+    SkipSpaces();
+    char c = PeekNextChar();
+    if (c == -1) { break; }
+
+    if (c == '{') {
+      return ParseObject();
+    } else if ( c == '[' ) {
+      return ParseArray();
+    } else if ( c == '-' || std::isdigit(c) ) {
+      return ParseNumber();
+    } else if ( c == '\"' ) {
+      return ParseString();
+    } else if ( c == 't' || c == 'f' ) {
+      return ParseBoolean();
+    } else if (c == 'n') {
+      return ParseNull();
+    } else {
+      Error("Unknown construct");
+    }
   }
+  return Json();
+}
+
+Json JsonReader::Load() {
+  Json result = Parse();
+  return result;
+}
+
+void JsonReader::Error(std::string msg) const {
+  // just copy it.
+  std::istringstream str_s(raw_str_.substr(0, raw_str_.size()));
+
+  msg += ", around character: " + std::to_string(cursor_.Pos());
+  msg += '\n';
+
+  constexpr size_t kExtend = 8;
+  auto beg = static_cast<int64_t>(cursor_.Pos()) -
+             static_cast<int64_t>(kExtend) < 0 ? 0 : cursor_.Pos() - kExtend;
+  auto end = cursor_.Pos() + kExtend >= raw_str_.size() ?
+             raw_str_.size() : cursor_.Pos() + kExtend;
+
+  msg += "    ";
+  msg += raw_str_.substr(beg, end - beg);
+  msg += '\n';
+
+  msg += "    ";
+  for (size_t i = beg; i < cursor_.Pos() - 1; ++i) {
+    msg += '~';
+  }
+  msg += '^';
+  for (size_t i = cursor_.Pos(); i < end; ++i) {
+    msg += '~';
+  }
+  LOG(FATAL) << msg;
 }
 
 // Json class
-void JsonReader::skipSpaces() {
-  while (cursor_.pos() < raw_str_.size()) {
-    char c = raw_str_[cursor_.pos()];
+void JsonReader::SkipSpaces() {
+  while (cursor_.Pos() < raw_str_.size()) {
+    char c = raw_str_[cursor_.Pos()];
     if (std::isspace(c)) {
-      cursor_.forward(c);
+      cursor_.Forward();
     } else {
       break;
     }
   }
 }
 
-Json JsonReader::parseString() {
-  char ch = getChar('\"');
+void ParseStr(std::string const& str) {
+  size_t end = 0;
+  for (size_t i = 0; i < str.size(); ++i) {
+    if (str[i] == '"' && i > 0 && str[i-1] != '\\') {
+      end = i;
+      break;
+    }
+  }
+  std::string result;
+  result.resize(end);
+}
+
+Json JsonReader::ParseString() {
+  char ch { GetChar('\"') };  // NOLINT
   std::ostringstream output;
   std::string str;
   while (true) {
-    ch = getNextChar();
+    ch = GetNextChar();
     if (ch == '\\') {
-      char next = static_cast<char>(getNextChar());
+      char next = static_cast<char>(GetNextChar());
       switch (next) {
         case 'r':  str += u8"\r"; break;
         case 'n':  str += u8"\n"; break;
@@ -485,156 +454,269 @@ Json JsonReader::parseString() {
           str += ch;
           str += 'u';
           break;
-        default: error("Unknown escape");
+        default: Error("Unknown escape");
       }
     } else {
       if (ch == '\"') break;
       str += ch;
     }
     if (ch == EOF || ch == '\r' || ch == '\n') {
-      expect('\"');
+      Expect('\"', ch);
     }
   }
   return Json(std::move(str));
 }
 
-Json JsonReader::parseArray() {
+Json JsonReader::ParseNull() {
+  char ch = GetNextNonSpaceChar();
+  std::string buffer{ch};
+  for (size_t i = 0; i < 3; ++i) {
+    buffer.push_back(GetNextChar());
+  }
+  if (buffer != "null") {
+    Error("Expecting null value \"null\"");
+  }
+  return Json{JsonNull()};
+}
+
+Json JsonReader::ParseArray() {
   std::vector<Json> data;
 
-  char ch = getChar('[');
+  char ch { GetChar('[') };  // NOLINT
   while (true) {
-    if (peekNextChar() == ']') {
-      getChar(']');
+    if (PeekNextChar() == ']') {
+      GetChar(']');
       return Json(std::move(data));
     }
-    auto obj = parse();
+    auto obj = Parse();
     data.push_back(obj);
-    ch = getNextNonSpaceChar();
+    ch = GetNextNonSpaceChar();
     if (ch == ']') break;
     if (ch != ',') {
-      expect(',');
+      Expect(',', ch);
     }
   }
 
   return Json(std::move(data));
 }
 
-Json JsonReader::parseObject() {
-  char ch = getChar('{');
+Json JsonReader::ParseObject() {
+  char ch = GetChar('{');
 
   std::map<std::string, Json> data;
   if (ch == '}') return Json(std::move(data));
 
-  while(true) {
-    skipSpaces();
-    ch = peekNextChar();
+  while (true) {
+    SkipSpaces();
+    ch = PeekNextChar();
+    NIH_ASSERT_NE(ch, -1) << "cursor_.Pos(): " << cursor_.Pos() << ", "
+                          << "raw_str_.size():" << raw_str_.size();
     if (ch != '"') {
-      expect('"');
+      Expect('"', ch);
     }
-    Json key = parseString();
+    Json key = ParseString();
 
-    ch = getNextNonSpaceChar();
+    ch = GetNextNonSpaceChar();
 
     if (ch != ':') {
-      expect(':');
+      Expect(':', ch);
     }
 
-    Json value {parse()};
-    data[Cast<JsonString>(&(key.getValue()))->getString()] = std::move(value);
+    Json value { Parse() };
 
-    ch = getNextNonSpaceChar();
+    data[get<String>(key)] = std::move(value);
+
+    ch = GetNextNonSpaceChar();
 
     if (ch == '}') break;
     if (ch != ',') {
-      expect(',');
+      Expect(',', ch);
     }
   }
 
   return Json(std::move(data));
 }
 
-Json JsonReader::parseNumber() {
-  std::string substr = raw_str_.substr(cursor_.pos(), 17);
-  size_t pos = 0;
-  double number = std::stod(substr, &pos);
-  for (size_t i = 0; i < pos; ++i) {
-    getNextChar();
+Json JsonReader::ParseNumber() {
+  // Adopted from sajson with some simplifications and small optimizations.
+  char const* p = raw_str_.c_str() + cursor_.Pos();
+  char const* const beg = p;  // keep track of current pointer
+
+  // TODO(trivialfis): Add back all the checks for number
+  bool negative = false;
+  if ('-' == *p) {
+    ++p;
+    negative = true;
   }
-  return Json(number);
+
+  bool is_float = false;
+
+  using ExpInt = std::remove_const<
+    decltype(std::numeric_limits<Number::Float>::max_exponent)>::type;
+  constexpr auto kExpMax = std::numeric_limits<ExpInt>::max();
+  constexpr auto kExpMin = std::numeric_limits<ExpInt>::min();
+
+  JsonInteger::Int i = 0;
+  double f = 0.0;  // Use double to maintain accuracy
+
+  if (*p == '0') {
+    ++p;
+  } else {
+    char c = *p;
+    do {
+      ++p;
+      char digit = c - '0';
+      i = 10 * i + digit;
+      c = *p;
+    } while (std::isdigit(c));
+  }
+
+  ExpInt exponent = 0;
+  const char *const dot_position = p;
+  if ('.' == *p) {
+    is_float = true;
+    f = i;
+    ++p;
+    char c = *p;
+
+    do {
+      ++p;
+      f = f * 10 + (c - '0');
+      c = *p;
+    } while (std::isdigit(c));
+  }
+  if (is_float) {
+    exponent = dot_position - p + 1;
+  }
+
+  char e = *p;
+  if ('e' == e || 'E' == e) {
+    if (!is_float) {
+      is_float = true;
+      f = i;
+    }
+    ++p;
+
+    bool negative_exponent = false;
+    if ('-' == *p) {
+      negative_exponent = true;
+      ++p;
+    } else if ('+' == *p) {
+      ++p;
+    }
+
+    ExpInt exp = 0;
+
+    char c = *p;
+    while (std::isdigit(c)) {
+      unsigned char digit = c - '0';
+      if (NIH_EXPECT(exp > (kExpMax - digit) / 10, false)) {
+        NIH_ASSERT_GT(exp, (kExpMax - digit) / 10) << "Overflow";
+      }
+      exp = 10 * exp + digit;
+      ++p;
+      c = *p;
+    }
+    static_assert(-kExpMax >= kExpMin, "exp can be negated without loss or UB");
+    exponent += (negative_exponent ? -exp : exp);
+  }
+
+  if (exponent) {
+    NIH_ASSERT(is_float);
+    // If d is zero but the exponent is huge, don't
+    // multiply zero by inf which gives nan.
+    if (f != 0.0) {
+      // Only use exp10 from libc on gcc+linux
+#if !defined(__GNUC__) || defined(_WIN32) || defined(__APPLE__)
+#define exp10(val) std::pow(10, (val))
+#endif  // !defined(__GNUC__) || defined(_WIN32) || defined(__APPLE__)
+      f *= exp10(exponent);
+#if !defined(__GNUC__) || defined(_WIN32) || defined(__APPLE__)
+#undef exp10
+#endif  // !defined(__GNUC__) || defined(_WIN32) || defined(__APPLE__)
+    }
+  }
+
+  if (negative) {
+      f = -f;
+      i = -i;
+  }
+
+  auto moved = std::distance(beg, p);
+  this->cursor_.Forward(moved);
+
+  if (is_float) {
+    return Json(static_cast<Number::Float>(f));
+  } else {
+    return Json(JsonInteger(i));
+  }
 }
 
-Json JsonReader::parseBoolean() {
+Json JsonReader::ParseBoolean() {
   bool result = false;
-  char ch = getNextNonSpaceChar();
+  char ch = GetNextNonSpaceChar();
   std::string const t_value = u8"true";
   std::string const f_value = u8"false";
   std::string buffer;
 
   if (ch == 't') {
     for (size_t i = 0; i < 3; ++i) {
-      buffer.push_back(getNextNonSpaceChar());
+      buffer.push_back(GetNextNonSpaceChar());
     }
     if (buffer != u8"rue") {
-      error("Expecting boolean value \"true\".");
+      Error("Expecting boolean value \"true\".");
     }
     result = true;
   } else {
     for (size_t i = 0; i < 4; ++i) {
-      buffer.push_back(getNextNonSpaceChar());
+      buffer.push_back(GetNextNonSpaceChar());
     }
     if (buffer != u8"alse") {
-      error("Expecting boolean value \"false\".");
+      Error("Expecting boolean value \"false\".");
     }
     result = false;
   }
   return Json{JsonBoolean{result}};
 }
 
-Json Json::load(std::istream* stream) {
-  JsonReader reader(stream);
-  try {
-    Json json{reader.load()};
-    return json;
-  } catch (std::runtime_error const& e) {
-    std::cerr << e.what();
-    return Json();
+// This is an ad-hoc solution for writing numeric value in standard way.  We need to add
+// a locale independent way of writing stream like `std::{from, to}_chars' from C++-17.
+// FIXME(trivialfis): Remove this.
+class GlobalCLocale {
+  std::locale ori_;
+
+ public:
+  GlobalCLocale() : ori_{std::locale()} {
+    std::string const name {"C"};
+    try {
+      std::locale::global(std::locale(name.c_str()));
+    } catch (std::runtime_error const& e) {
+      LOG(FATAL) << "Failed to set locale: " << name;
+    }
   }
+  ~GlobalCLocale() {
+    std::locale::global(ori_);
+  }
+};
+
+Json Json::load(StringView str) {
+  GlobalCLocale guard;
+  JsonReader reader(str);
+  Json json{reader.Load()};
+  return json;
 }
 
-void Json::dump(Json json, std::ostream *stream) {
-  JsonWriter writer(stream);
-  try {
-    writer.save(json);
-  } catch (std::runtime_error const& e) {
-    std::cerr << e.what();
-  }
+Json Json::load(JsonReader* reader) {
+  GlobalCLocale guard;
+  Json json{reader->Load()};
+  return json;
 }
 
-Json& Json::operator=(Json const &other) {
-  auto type = other.getValue().type();
-  switch (type) {
-  case Value::ValueKind::Array:
-    ptr_.reset(new JsonArray(*Cast<JsonArray const>(&other.getValue())));
-    break;
-  case Value::ValueKind::Boolean:
-    ptr_.reset(new JsonBoolean(*Cast<JsonBoolean const>(&other.getValue())));
-    break;
-  case Value::ValueKind::Null:
-    ptr_.reset(new JsonNull(*Cast<JsonNull const>(&other.getValue())));
-    break;
-  case Value::ValueKind::Number:
-    ptr_.reset(new JsonNumber(*Cast<JsonNumber const>(&other.getValue())));
-    break;
-  case Value::ValueKind::Object:
-    ptr_.reset(new JsonObject(*Cast<JsonObject const>(&other.getValue())));
-    break;
-  case Value::ValueKind::String:
-    ptr_.reset(new JsonString(*Cast<JsonString const>(&other.getValue())));
-    break;
-  default:
-    throw std::runtime_error("Unknown value kind.");
-  }
-  return *this;
+void Json::dump(Json json, std::ostream *stream, bool pretty) {
+  GlobalCLocale guard;
+  JsonWriter writer(stream, pretty);
+  writer.Save(json);
 }
-}  // namespace json
+
+Json& Json::operator=(Json const &other) = default;
 }  // namespace nih

@@ -193,6 +193,8 @@ class CapturedStream {
   std::string _filename;
 };
 
+std::string LoadSequentialFile(std::string fname);
+
 }  // namespace nih
 
 #endif  // _URI_HH_

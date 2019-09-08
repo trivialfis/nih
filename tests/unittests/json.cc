@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include "nih/json.hh"
+#include <nih/uri.hh>
 
 namespace nih {
 namespace json {
@@ -134,15 +135,13 @@ std::string getModelStr() {
 
 TEST(Json, TestParseObject) {
   std::string str = R"obj({"TreeParam" : {"num_feature": "10"}})obj";
-  std::istringstream iss(str);
-  auto json = json::Json::load(&iss);
+  auto json = Json::load(StringView{str.c_str(), str.size()});
 }
 
 TEST(Json, ParseNumber) {
   std::string str = "31.8892";
-  std::istringstream iss(str);
-  auto json = json::Json::load(&iss);
-  ASSERT_EQ(get<JsonNumber>(json), 31.8892);
+  auto json = Json::load(StringView{str.c_str(), str.size()});
+  ASSERT_NEAR(get<JsonNumber>(json), 31.8892, 1e-6);
 }
 
 TEST(Json, ParseArray) {
@@ -173,13 +172,12 @@ TEST(Json, ParseArray) {
     ]
 }
 )json";
-  std::istringstream iss(str);
-  auto json = json::Json::load(&iss);
+  auto json = Json::load(StringView{str.c_str(), str.size()});
   json = json["nodes"];
   std::vector<Json> arr = get<JsonArray>(json);
   ASSERT_EQ(arr.size(), 3);
   Json v0 = arr[0];
-  ASSERT_EQ(get<JsonNumber>(v0["depth"]), 3);
+  ASSERT_EQ(get<Integer>(v0["depth"]), 3);
 }
 
 TEST(Json, EmptyArray) {
@@ -188,8 +186,7 @@ TEST(Json, EmptyArray) {
   "leaf_vector": []
 }
 )json";
-  std::istringstream iss(str);
-  auto json = json::Json::load(&iss);
+  auto json = Json::load(StringView{str.c_str(), str.size()});
   auto arr = get<JsonArray>(json["leaf_vector"]);
   ASSERT_EQ(arr.size(), 0);
 }
@@ -201,17 +198,14 @@ TEST(Json, Boolean) {
   "right_child": false
 }
 )json";
-  std::stringstream ss(str);
-  Json j {json::Json::load(&ss)};
-  ASSERT_EQ(
-      json::get<JsonBoolean>(j["left_child"]), true);
-  ASSERT_EQ(
-      json::get<JsonBoolean>(j["right_child"]), false);
+  Json j {Json::load(StringView{str.c_str(), str.size()})};
+  ASSERT_EQ(get<JsonBoolean>(j["left_child"]), true);
+  ASSERT_EQ(get<JsonBoolean>(j["right_child"]), false);
 }
 
 TEST(Json, Indexing) {
-  std::stringstream ss(getModelStr());
-  Json j {json::Json::load(&ss)};
+  auto str = getModelStr();
+  Json j {Json::load(StringView{str.c_str(), str.size()})};
 
   auto& value_1 = j["model_parameter"];
   auto& value = value_1["base_score"];
@@ -234,7 +228,7 @@ TEST(Json, AssigningObjects) {
     std::vector<Json> arr_0 (1, Json(3.3));
     json_objects["tree_parameters"] = JsonArray(arr_0);
     std::vector<Json> json_arr = get<JsonArray>(json_objects["tree_parameters"]);
-    ASSERT_EQ(get<JsonNumber>(json_arr[0]), 3.3);
+    ASSERT_NEAR(get<JsonNumber>(json_arr[0]), 3.3, 1e-6);
   }
 
   {
@@ -252,9 +246,9 @@ TEST(Json, AssigningObjects) {
 TEST(Json, AssigningArray) {
   Json json;
   json = JsonArray();
-  std::vector<Json> tmp_0 {Json(Number(1)), Json(Number(2))};
+  std::vector<Json> tmp_0 {Json(Number(1.0)), Json(Number(2.0))};
   json = tmp_0;
-  std::vector<Json> tmp_1 {Json(Number(3))};
+  std::vector<Json> tmp_1 {Json(Number(3.0))};
   get<Array>(json) = tmp_1;
   std::vector<Json> res = get<Array>(json);
   ASSERT_EQ(get<Number>(res[0]), 3);
@@ -263,26 +257,26 @@ TEST(Json, AssigningArray) {
 TEST(Json, AssigningNumber) {
   {
     // right value
-    Json json = Json{ Number(4) };
+    Json json = Json{ Number(4.0) };
     get<Number>(json) = 15;
     ASSERT_EQ(get<Number>(json), 15);
   }
 
   {
     // left value ref
-    Json json = Json{ Number(4) };
-    double& ref = get<Number>(json);
+    Json json = Json{ Number(4.0) };
+    Number::Float& ref = get<Number>(json);
     ref = 15;
     ASSERT_EQ(get<Number>(json), 15);
   }
 
   {
     // left value
-    Json json = Json{ Number(4) };
-    double value = get<Number>(json);
+    Json json = Json{ Number(4.0) };
+    Number::Float& value = get<Number>(json);
     ASSERT_EQ(value, 4);
     value = 15;  // NOLINT
-    ASSERT_EQ(get<Number>(json), 4);
+    ASSERT_EQ(get<Number>(json), 15.0);
   }
 }
 
@@ -312,18 +306,21 @@ TEST(Json, AssigningString) {
 }
 
 TEST(Json, LoadDump) {
-  std::stringstream ss(getModelStr());
-  Json origin {json::Json::load(&ss)};
+  std::string ori_buffer = getModelStr();
+  Json origin {Json::load(StringView{ori_buffer.c_str(), ori_buffer.size()})};
 
-  std::ofstream fout ("/tmp/model_dump.json");
-  json::Json::dump(origin, &fout);
+  std::string tempdir {"/tmp/"};
+  auto const& path = tempdir + "test_model_dump";
+
+  std::ofstream fout (path);
+  Json::dump(origin, &fout);
   fout.close();
 
-  std::ifstream fin ("/tmp/model_dump.json");
-  Json load_back {json::Json::load(&fin)};
-  fin.close();
+  std::string new_buffer = LoadSequentialFile(path);
+  Json load_back {Json::load(StringView(new_buffer.c_str(), new_buffer.size()))};
 
-  ASSERT_EQ(load_back, origin);
+  ASSERT_EQ(load_back, origin) << ori_buffer << "\n\n---------------\n\n"
+                               << new_buffer;
 }
 
 // For now Json is quite ignorance about unicode.
@@ -331,8 +328,7 @@ TEST(Json, CopyUnicode) {
   std::string json_str = R"json(
 {"m": ["\ud834\udd1e", "\u20ac", "\u0416", "\u00f6"]}
 )json";
-  std::stringstream ss_0(json_str);
-  Json loaded {json::Json::load(&ss_0)};
+  Json loaded {Json::load(StringView{json_str.c_str(), json_str.size()})};
 
   std::stringstream ss_1;
   Json::dump(loaded, &ss_1);
@@ -347,7 +343,7 @@ TEST(Json, WrongCasts) {
     ASSERT_ANY_THROW(get<Number>(json));
   }
   {
-    Json json = Json{ Array{ std::vector<Json>{ Json{ Number{1} } } } };
+    Json json = Json{ Array{ std::vector<Json>{ Json{ Number{1.0} } } } };
     ASSERT_ANY_THROW(get<Number>(json));
   }
   {
@@ -357,5 +353,31 @@ TEST(Json, WrongCasts) {
   }
 }
 
+TEST(Json, Int_vs_Float) {
+  // If integer is parsed as float, calling `get<Integer>()' will throw.
+  {
+    std::string str = R"json(
+{
+  "number": 123.4,
+  "integer": 123
+})json";
+
+    Json obj = Json::load({str.c_str(), str.size()});
+    JsonNumber::Float number = get<Number>(obj["number"]);
+    ASSERT_NEAR(number, 123.4f, 1e-6);
+    JsonInteger::Int integer = get<Integer>(obj["integer"]);
+    ASSERT_EQ(integer, 123);
+  }
+
+  {
+    std::string str = R"json(
+{"data": [2503595760, false], "shape": [10]}
+)json";
+    Json obj = Json::load({str.c_str(), str.size()});
+    auto array = get<Array>(obj["data"]);
+    auto ptr = get<Integer>(array[0]);
+    ASSERT_EQ(ptr, 2503595760);
+  }
+}
 }  // namespace json
 }  // namespace nih
