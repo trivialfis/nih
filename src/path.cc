@@ -16,6 +16,7 @@
  * along with NIH.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <unistd.h>
+#include <sys/stat.h>
 #include "nih/path.hh"
 #include "nih/logging.hh"
 
@@ -55,4 +56,23 @@ Path Path::curdir() {
   Path ret {buff};
   return ret;
 }
+
+bool Path::isFile() const {
+  struct stat path_stat;
+  stat(_path.c_str(), &path_stat);
+  return static_cast<bool>(S_ISREG(path_stat.st_mode));
+}
+
+bool Path::isDir() const {
+  struct stat path_stat;
+  stat(_path.c_str(), &path_stat);
+  return static_cast<bool>(S_ISDIR(path_stat.st_mode));
+}
+
+bool Path::isSymlink() const {
+  struct stat path_stat;
+  stat(_path.c_str(), &path_stat);
+  return static_cast<bool>(S_ISLNK(path_stat.st_mode));
+}
+
 }  // namespace nih

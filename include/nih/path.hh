@@ -27,17 +27,33 @@ class Path {
   std::string _path;
 
  public:
+  /*! \brief Return current working directory. */
+  static Path curdir();
+
   static Path join(Path const& lhs, Path const& rhs);
   static Path join(Path const& that) { return that; }
-
-  static Path curdir();
+  /*! \brief Join multiple path objects into one. */
+  template <typename... Paths>
+  static Path join(Path that, Paths const& ...args) {
+    return join(that, join(args...));
+  }
 
  public:
   Path() = default;
+  Path(Path const& that) : _path{that._path} {}
+  Path(Path&& that): _path{std::move(that._path)} {}
   explicit Path(std::string const& path) : _path{path} {}
 
   Path& operator=(std::string const& path) {
     _path = path;
+    return *this;
+  }
+  Path& operator=(Path const& that) {
+    _path = that._path;
+    return *this;
+  }
+  Path& operator=(Path&& that) {
+    _path = std::move(that._path);
     return *this;
   }
 
@@ -49,12 +65,11 @@ class Path {
     return *this;
   }
 
-  template <typename... Paths>
-  static Path join(Path that, Paths const& ...args) {
-    return join(that, join(args...));
-  }
-
   std::string const& str() const { return _path; }
+
+  bool isFile() const;
+  bool isDir() const;
+  bool isSymlink() const;
 };
 
 std::ostream& operator<<(std::ostream& os, Path const& that) {

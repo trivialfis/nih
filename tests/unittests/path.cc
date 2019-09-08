@@ -49,4 +49,15 @@ TEST(Path, Curdir) {
   ASSERT_NE(curdir.str().size(), 0);
 }
 
+TEST(Path, Test) {
+  auto curdir = Path::curdir();
+  ASSERT_TRUE(curdir.isDir());
+
+  auto file = Path{__FILE__};
+  ASSERT_TRUE(file.isFile());
+
+  ASSERT_FALSE(curdir.isSymlink());
+  ASSERT_FALSE(file.isSymlink());
+}
+
 }  // namespace nih
