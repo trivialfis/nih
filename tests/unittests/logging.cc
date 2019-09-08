@@ -117,10 +117,8 @@ TEST(Logging, Uri) {
 
 TEST(Logging, Segfault) {
   int64_t* ptr {nullptr};
-  auto capture {CapturedStream(STDOUT_FILENO)};
+  // FIXME: doesn't seem to output anything in death test.
   EXPECT_DEATH({std::cout << *ptr << std::endl;}, "");  // NOLINT
-  auto output = capture.getCapturedString();
-  std::cout << output << std::endl;
 }
 
 }  // namespace nih

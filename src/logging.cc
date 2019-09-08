@@ -342,10 +342,7 @@ class SignalsHandling {
   static void handleSignal(int32_t, siginfo_t* info, void* ctx) {
     ucontext_t *uctx = static_cast<ucontext_t *>(ctx);
     StackTrace st;
-    auto traces = st.get();
-    for (auto const& t : traces) {
-      std::cout << t << std::endl;
-    }
+    std::cerr << st.str();
   }
 };
 

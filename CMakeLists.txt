@@ -21,14 +21,9 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
   message(FATAL "In-source builds not supported.")
 endif()
 
-add_library(nih SHARED
-  "${CMAKE_CURRENT_LIST_DIR}/src/errors.cc"
-  "${CMAKE_CURRENT_LIST_DIR}/src/file.cc"
-  "${CMAKE_CURRENT_LIST_DIR}/src/json.cc"
-  "${CMAKE_CURRENT_LIST_DIR}/src/logging.cc"
-  "${CMAKE_CURRENT_LIST_DIR}/src/memory.cc"
-  "${CMAKE_CURRENT_LIST_DIR}/src/random.cc"
-  "${CMAKE_CURRENT_LIST_DIR}/src/uri.cc")
+file(GLOB_RECURSE NIH_SOURCES "src/*.cc")
+
+add_library(nih SHARED ${NIH_SOURCES})
 add_library(nih::nih ALIAS nih)
 set_target_properties(
   nih PROPERTIES
@@ -41,22 +36,9 @@ target_include_directories(nih
   $<INSTALL_INTERFACE:include/>)
 
 include(GNUInstallDirs)
+file(GLOB_RECURSE NIH_INSTALL_HEADERS "include/nih/*.hh")
 install(FILES
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/errors.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/json.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/logging.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/math.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/memory.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/monitor.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/primitives.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/random.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/range.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/registry.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/strings.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/singleton.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/threads.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/unroll.hh"
-  "${CMAKE_CURRENT_LIST_DIR}/include/nih/uri.hh"
+  ${NIH_INSTALL_HEADERS}
   DESTINATION
   include/nih/)
 
