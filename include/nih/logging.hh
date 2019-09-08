@@ -78,7 +78,7 @@ class Log {
       std::string msg, ErrorType et=defaultVerbosity());
 
   static void setThreadName(std::string name);
-  static void setUri(ErrorType, Uri uri);
+  static void setUri(ErrorType, UriScheme* scheme);
   static void reset();
 };
 

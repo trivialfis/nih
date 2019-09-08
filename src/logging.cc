@@ -42,8 +42,9 @@ struct Colorize {
     kWhite
   };
 
-  Colorize(Uri*uri) {
-    _is_tty = isTTY(*uri);
+  Colorize(UriScheme const* uri) {
+    // _is_tty = isTTY(*uri);
+    _is_tty = true;
   }
   std::string operator()(Color c, std::string const& msg) {
     if (_is_tty) {
@@ -67,7 +68,7 @@ struct Colorize {
 
 class LogImpl {
   ThreadStore<std::string> _names;
-  std::map<Log::ErrorType, Uri> _out_uris;
+  std::map<Log::ErrorType, UriScheme*> _out_uris;
 
   void checkKnownError(Log::ErrorType type) const {
     if (_out_uris.find(type) == _out_uris.cend()) {
@@ -86,13 +87,13 @@ class LogImpl {
     _names.clear();
     using E = Log::ErrorType;
     // Default uris
-    _out_uris.emplace(E::kFatal, StdErr);
-    _out_uris.emplace(E::kUserError, StdErr);
-    _out_uris.emplace(E::kWarning, StdErr);
-    _out_uris.emplace(E::kError, StdErr);
-    _out_uris.emplace(E::kUser, StdOut);
-    _out_uris.emplace(E::kInfo, StdOut);
-    _out_uris.emplace(E::kDebug, StdOut);
+    _out_uris.emplace(E::kFatal,     &StdErr);
+    _out_uris.emplace(E::kUserError, &StdErr);
+    _out_uris.emplace(E::kWarning,   &StdErr);
+    _out_uris.emplace(E::kError,     &StdErr);
+    _out_uris.emplace(E::kUser,      &StdOut);
+    _out_uris.emplace(E::kInfo,      &StdOut);
+    _out_uris.emplace(E::kDebug,     &StdOut);
   }
 
   void setThreadName(std::string name) {
@@ -113,14 +114,15 @@ class LogImpl {
     return name;
   }
 
-  void uri(Log::ErrorType type, Uri uri) {
+  void uri(Log::ErrorType type, UriScheme* scheme) {
     checkKnownError(type);
-    _out_uris.at(type) = uri;
+    _out_uris.at(type) = scheme;
+    NIH_ASSERT(_out_uris.at(type));
   }
 
-  Uri* uri(Log::ErrorType type) {
+  UriScheme* scheme(Log::ErrorType type) {
     checkKnownError(type);
-    return &(_out_uris.at(type));
+    return _out_uris.at(type);
   }
 };
 
@@ -163,8 +165,8 @@ void Log::setThreadName(std::string name) {
   impl()->setThreadName(name);
 }
 
-void Log::setUri(ErrorType type, Uri uri) {
-  impl()->uri(type, uri);
+void Log::setUri(ErrorType type, UriScheme* scheme) {
+  impl()->uri(type, scheme);
 }
 
 void Log::reset() {
@@ -174,21 +176,21 @@ void Log::reset() {
 std::stringstream& Log::fatal() {
   error_type_ = ErrorType::kFatal;
   stream_ << impl()->str() <<
-      Colorize{impl()->uri(ErrorType::kFatal)}(Colorize::kRed, "[FATAL]") << ": ";
+      Colorize{impl()->scheme(ErrorType::kFatal)}(Colorize::kRed, "[FATAL]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::error() {
   error_type_ = ErrorType::kError;
   stream_ << impl()->str() <<
-      Colorize{impl()->uri(ErrorType::kError)}(Colorize::kRed, "[ERROR]") << ": ";
+      Colorize{impl()->scheme(ErrorType::kError)}(Colorize::kRed, "[ERROR]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::userError() {
   error_type_ = ErrorType::kUserError;
   stream_ << impl()->str() <<
-      Colorize{impl()->uri(ErrorType::kUser)}(Colorize::kRed, "[USER ERROR]") << ": ";
+      Colorize{impl()->scheme(ErrorType::kUser)}(Colorize::kRed, "[USER ERROR]") << ": ";
   return stream_;
 }
 
@@ -201,14 +203,14 @@ std::stringstream& Log::user() {
 std::stringstream& Log::warning() {
   error_type_ = ErrorType::kWarning;
   stream_ << impl()->str() <<
-      Colorize{impl()->uri(ErrorType::kWarning)}(Colorize::kYellow, "[WARNING]") << ": ";
+      Colorize{impl()->scheme(ErrorType::kWarning)}(Colorize::kYellow, "[WARNING]") << ": ";
   return stream_;
 }
 
 std::stringstream& Log::info() {
   error_type_ = ErrorType::kInfo;
   stream_ << impl()->str() <<
-      Colorize{impl()->uri(ErrorType::kInfo)}(Colorize::kWhite, "[INFO]") << ": ";
+      Colorize{impl()->scheme(ErrorType::kInfo)}(Colorize::kWhite, "[INFO]") << ": ";
   return stream_;
 }
 
@@ -275,19 +277,19 @@ Log::~Log() noexcept(false) {
   switch (error_type_) {
     // non throw
     case ErrorType::kWarning:
-      impl()->uri(ErrorType::kWarning)->write(stream_.str()).flush();
+      impl()->scheme(ErrorType::kWarning)->write(stream_.str()).flush();
       break;
     case ErrorType::kError:
-      impl()->uri(ErrorType::kError)->write(stream_.str()).flush();
+      impl()->scheme(ErrorType::kError)->write(stream_.str()).flush();
       break;
     case ErrorType::kUser:
-      impl()->uri(ErrorType::kUser)->write(stream_.str()).flush();
+      impl()->scheme(ErrorType::kUser)->write(stream_.str()).flush();
       break;
     case ErrorType::kInfo:
-      impl()->uri(ErrorType::kInfo)->write(stream_.str()).flush();
+      impl()->scheme(ErrorType::kInfo)->write(stream_.str()).flush();
       break;
     case ErrorType::kDebug:
-      impl()->uri(ErrorType::kDebug)->write(stream_.str()).flush();
+      impl()->scheme(ErrorType::kDebug)->write(stream_.str()).flush();
       break;
     default:
       LOG(FATAL) << "Unknow verbosity: " << static_cast<int>(error_type_);
@@ -295,6 +297,8 @@ Log::~Log() noexcept(false) {
 }
 
 class SignalsHandling {
+  bool _success {true};
+
  public:
   SignalsHandling() {
     // Signal snippet borrowed from backward-cpp
@@ -313,7 +317,6 @@ class SignalsHandling {
       SIGXFSZ, // File size limit exceeded (4.2BSD)
     };
 
-    bool success {true};
 
     for (size_t i = 0; i < _posix_signals.size(); ++i) {
       struct sigaction action;
@@ -325,7 +328,7 @@ class SignalsHandling {
       action.sa_sigaction = &sigHandler;
       int r = sigaction(_posix_signals[i], &action, nullptr);
       if (r < 0)
-        success = false;
+        _success = false;
     }
   }
   static void sigHandler(int signo, siginfo_t *info, void *_ctx) {

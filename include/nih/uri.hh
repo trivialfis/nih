@@ -21,34 +21,10 @@
 #include <cinttypes>
 #include <string>
 #include <memory>
-#include <nih/registry.hh>
 
 namespace nih {
 
 class Uri;
-
-class UriScheme {
-  std::string _name;
-  using RegistryT = RegistryEntry<UriScheme*(Uri const&, std::string flags)>;
-
- public:
-  UriScheme() = delete;
-  UriScheme(std::string name) : _name{std::move(name)} {}
-
-  virtual UriScheme& write(std::string input) = 0;
-  virtual UriScheme& write(char* input, size_t size) = 0;
-  virtual UriScheme& read(std::string* output, size_t size) = 0;
-  virtual UriScheme& read(char* output, size_t size) = 0;
-
-  virtual void flush() = 0;
-
-  virtual std::string const& str() { return _name; }
-
-  static UriScheme* create(std::string scheme, Uri const * const);
-  static RegistryT& registry(
-      std::string name,
-      std::function<UriScheme*(Uri const&, std::string flags)> creator);
-};
 
 enum class UriErrorCode : uint8_t {
   kValid = 0,
@@ -60,18 +36,11 @@ class Uri {
   std::string _uri;
   std::string _scheme_str;
   std::string _host_str;
-  std::string _flags;
 
   bool _is_valid;
   UriErrorCode _code;
 
-  std::shared_ptr<UriScheme> _scheme;
-
-  void initialize() {
-    if (!_scheme) {
-      _scheme.reset(UriScheme::create(_scheme_str, this));
-    }
-  }
+  void initialize() {}
 
   template <typename Comp>
   static bool compare(Uri const& lhs, Uri const& rhs, Comp comp) {
@@ -85,7 +54,8 @@ class Uri {
   }
 
  public:
-  Uri(std::string uri, std::string flags);
+  Uri(std::string uri);
+  Uri(std::string scheme, std::string host, std::string query);
   Uri(Uri const& that) = default;
   Uri(Uri&& that) = default;
 
@@ -98,19 +68,10 @@ class Uri {
   std::string const& host() const {
     return _host_str;
   }
-  std::shared_ptr<UriScheme> schemeObj() const {
-    return _scheme;
-  }
 
   bool isValid() { return _is_valid; }
   bool isAbsolute() { return true; }  // FIXME
   bool isOpaque() { return true; }    // FIXME
-
-  Uri& write(std::string const& input);
-  Uri& write(char* input, size_t size);
-
-  Uri& read(std::string* output, size_t size);
-  Uri& read(char* output, size_t size);
 
   Uri& flush();
 
@@ -143,19 +104,34 @@ class Uri {
     return !(*this == that);
   }
 
-  std::string const& flags() const { return _flags; }
   UriErrorCode error() { return _code; }
+};
+
+class UriScheme {
+  Uri _uri;
+
+ public:
+  UriScheme() = delete;
+  UriScheme(Uri uri) : _uri{uri} {}
+
+  virtual UriScheme& write(std::string input) = 0;
+  virtual UriScheme& write(char* input, size_t size) = 0;
+  virtual UriScheme& read(std::string* output, size_t size) = 0;
+  virtual UriScheme& read(char* output, size_t size) = 0;
+
+  virtual void flush() = 0;
+  virtual Uri uri() const { return _uri; }
 };
 
 class FileScheme : public UriScheme {
   std::string _path;
   std::string _flags;
   FILE* _fd;
- protected:
-  FileScheme(Uri const& uri, std::string scheme, FILE* fd);
+  int32_t _borrowed;
 
  public:
   FileScheme(Uri const& uri, std::string flags);
+  FileScheme(Uri const& uri, FILE* fd, std::string flags);
   ~FileScheme();
   UriScheme& write(std::string input) override;
   UriScheme& write(char* input, size_t size) override;
@@ -167,11 +143,11 @@ class FileScheme : public UriScheme {
   FILE* descriptor() { return _fd; }
 };
 
-extern Uri StdOut;
-extern Uri StdErr;
-extern Uri StdIn;
+extern FileScheme StdOut;
+extern FileScheme StdErr;
+extern FileScheme StdIn;
 
-bool isTTY(Uri const& uri);
+// bool isTTY(Uri* const uri);
 
 template <typename Type>
 std::string str(Type value) {
@@ -192,9 +168,6 @@ class CapturedStream {
   // Name of the temporary file holding the stderr output.
   std::string _filename;
 };
-
-std::string LoadSequentialFile(std::string fname);
-
 }  // namespace nih
 
 #endif  // _URI_HH_

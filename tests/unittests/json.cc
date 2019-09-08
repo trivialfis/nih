@@ -3,7 +3,8 @@
 
 #include <gtest/gtest.h>
 
-#include "nih/json.hh"
+#include <nih/json.hh>
+#include <nih/file.hh>
 #include <nih/uri.hh>
 
 namespace nih {
@@ -316,7 +317,7 @@ TEST(Json, LoadDump) {
   Json::dump(origin, &fout);
   fout.close();
 
-  std::string new_buffer = LoadSequentialFile(path);
+  std::string new_buffer = loadSequentialFile(Uri{"file:///" + path});
   Json load_back {Json::load(StringView(new_buffer.c_str(), new_buffer.size()))};
 
   ASSERT_EQ(load_back, origin) << ori_buffer << "\n\n---------------\n\n"

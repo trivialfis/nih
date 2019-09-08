@@ -15,12 +15,6 @@
  * You should have received a copy of the Lesser GNU General Public License
  * along with NIH.  If not, see <https://www.gnu.org/licenses/>.
  */
-#if defined(__unix__)
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#endif  // defined(__unix__)
-#include <cstdio>
 #include <map>
 
 #include "nih/errors.hh"
@@ -30,9 +24,8 @@
 
 namespace nih {
 
-Uri::Uri(std::string uri, std::string flags)
+Uri::Uri(std::string uri)
     : _uri{uri},
-      _flags{flags},
       _is_valid {true},
       _code{UriErrorCode::kValid}
 {
@@ -49,19 +42,26 @@ Uri::Uri(std::string uri, std::string flags)
     _is_valid = false;
     _code = UriErrorCode::kHost;
   } else {
-    _host_str = res[1];
+    auto host = res[1];
+    if (host.size() < 3) {
+      _is_valid = false;
+      _code = UriErrorCode::kHost;
+      return;
+    } else {
+      _host_str = res[1].substr(2);
+    }
   }
 }
+
+Uri::Uri(std::string scheme, std::string host, std::string query)
+    : _scheme_str{scheme}, _host_str{host} {}
 
 Uri& Uri::operator=(Uri const& that) {
   this->_uri = that._uri;
   this->_scheme_str = that._scheme_str;
   this->_host_str = that._host_str;
-  this->_flags = that._flags;
   this->_is_valid = that._is_valid;
   this->_code = that._code;
-
-  this->_scheme = that._scheme;
   return *this;
 }
 
@@ -69,112 +69,13 @@ Uri& Uri::operator=(Uri&& that) {
   this->_uri = std::move(that._uri);
   this->_scheme_str = std::move(that._scheme_str);
   this->_host_str = std::move(that._host_str);
-  this->_flags = std::move(that._flags);
   this->_is_valid = that._is_valid;
   this->_code = that._code;
-
-  this->_scheme = std::move(that._scheme);
-  return *this;
-}
-
-Uri& Uri::write(std::string const& input) {
-  initialize();
-  _scheme->write(input);
-  return *this;
-}
-Uri& Uri::write(char* input, size_t size) {
-  initialize();
-  _scheme->write(input, size);
-  return *this;
-}
-
-Uri& Uri::read(std::string* output, size_t size) {
-  initialize();
-  _scheme->read(output, size);
-  return *this;
-}
-Uri& Uri::read(char* output, size_t size) {
-  initialize();
-  _scheme->read(output, size);
   return *this;
 }
 
 Uri& Uri::flush() {
   initialize();
-  _scheme->flush();
   return *this;
-}
-
-UriScheme* UriScheme::create(std::string scheme, Uri const * const uri){
-  auto registry = Registry<RegistryT>::getRegistry();
-  auto iter = registry->find(scheme);
-  if (iter == registry->cend()) {
-    std::string msg {"Available Schemes:\n"};
-    for (auto const& kv : *registry) {
-      msg += "# " + kv.first + '\n';
-    }
-    throw NIHError(msg);
-  }
-  auto ptr = iter->second.getCreator()(*uri, uri->flags());
-  return ptr;
-}
-
-UriScheme::RegistryT& UriScheme::registry(
-    std::string name, std::function<UriScheme*(Uri const&, std::string flags)> creator) {
-  auto registry = Registry<RegistryT>::getRegistry();
-  if (registry->find(name) != registry->cend()) {
-    throw NIHError("Uri scheme: " + name + " is already registered.");
-  }
-  (*registry)[name].setCreator(creator);
-  return (*registry)[name];
-}
-
-std::string LoadSequentialFile(std::string fname) {
-  auto OpenErr = [&fname]() {
-                   std::string msg;
-                   msg = "Opening " + fname + " failed: ";
-                   msg += strerror(errno);
-                   LOG(FATAL) << msg;
-                 };
-  auto ReadErr = [&fname]() {
-                   std::string msg {"Error in reading file: "};
-                   msg += fname;
-                   msg += ": ";
-                   msg += strerror(errno);
-                   LOG(FATAL) << msg;
-                 };
-
-  std::string buffer;
-#if defined(__unix__)
-  struct stat fs;
-  if (stat(fname.c_str(), &fs) != 0) {
-    OpenErr();
-  }
-
-  size_t f_size_bytes = fs.st_size;
-  buffer.resize(f_size_bytes+1);
-  int32_t fd = open(fname.c_str(), O_RDONLY);
-  posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
-  ssize_t bytes_read = read(fd, &buffer[0], f_size_bytes);
-  if (bytes_read < 0) {
-    close(fd);
-    ReadErr();
-  }
-  close(fd);
-#else
-  FILE *f = fopen(fname.c_str(), "r");
-  if (f == NULL) {
-    std::string msg;
-    OpenErr();
-  }
-  fseek(f, 0, SEEK_END);
-  auto fsize = ftell(f);
-  fseek(f, 0, SEEK_SET);
-
-  buffer.resize(fsize + 1);
-  fread(&buffer[0], 1, fsize, f);
-  fclose(f);
-#endif  // defined(__unix__)
-  return buffer;
 }
 }  // namespace nih

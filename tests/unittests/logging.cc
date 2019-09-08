@@ -31,7 +31,7 @@ TEST(Logging, Basic) {
     auto capture {CapturedStream(STDERR_FILENO)};
     LOG(WARNING) << "Log warning.";
     output = capture.getCapturedString();
-    ASSERT_NE(output.find("Log warning."), std::string::npos);
+    ASSERT_NE(output.find("Log warning."), std::string::npos) << output;
     ASSERT_NE(output.find("[WARNING]"), std::string::npos);
   }
 
@@ -98,8 +98,9 @@ TEST(Logging, Thread) {
 
 TEST(Logging, Uri) {
   Log::setGlobalVerbosity(Log::ErrorType::kDebug);
-  Uri tmp("file:/tmp/nih-test-logging", "w");
-  Log::setUri(Log::ErrorType::kDebug, tmp);
+  Uri tmp("file:///tmp/nih-test-logging");
+  auto* scheme = new FileScheme(tmp, "w");
+  Log::setUri(Log::ErrorType::kDebug, scheme);
 
   LOG(DEBUG) << "Debug";
 
@@ -111,12 +112,13 @@ TEST(Logging, Uri) {
   std::remove("/tmp/nih-test-logging");
 
   Log::reset();
+  delete scheme;
 }
 
 TEST(Logging, Segfault) {
   int64_t* ptr {nullptr};
   auto capture {CapturedStream(STDOUT_FILENO)};
-  EXPECT_DEATH({std::cout << *ptr << std::endl;}, "");
+  EXPECT_DEATH({std::cout << *ptr << std::endl;}, "");  // NOLINT
   auto output = capture.getCapturedString();
   std::cout << output << std::endl;
 }
