@@ -113,4 +113,12 @@ TEST(Logging, Uri) {
   Log::reset();
 }
 
+TEST(Logging, Segfault) {
+  int64_t* ptr {nullptr};
+  auto capture {CapturedStream(STDOUT_FILENO)};
+  EXPECT_DEATH({std::cout << *ptr << std::endl;}, "");
+  auto output = capture.getCapturedString();
+  std::cout << output << std::endl;
+}
+
 }  // namespace nih

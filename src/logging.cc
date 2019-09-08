@@ -15,6 +15,9 @@
  * You should have received a copy of the Lesser GNU General Public License
  * along with NIH.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include <signal.h>
+#include <unistd.h>
+
 #include <cstdlib>
 #include <sstream>
 
@@ -290,6 +293,60 @@ Log::~Log() noexcept(false) {
       LOG(FATAL) << "Unknow verbosity: " << static_cast<int>(error_type_);
   }
 }
+
+class SignalsHandling {
+ public:
+  SignalsHandling() {
+    // Signal snippet borrowed from backward-cpp
+    std::vector<int32_t> _posix_signals {
+      // Signals for which the default action is "Core".
+      SIGABRT, // Abort signal from abort(3)
+      SIGBUS,  // Bus error (bad memory access)
+      SIGFPE,  // Floating point exception
+      SIGILL,  // Illegal Instruction
+      SIGIOT,  // IOT trap. A synonym for SIGABRT
+      SIGQUIT, // Quit from keyboard
+      SIGSEGV, // Invalid memory reference
+      SIGSYS,  // Bad argument to routine (SVr4)
+      SIGTRAP, // Trace/breakpoint trap
+      SIGXCPU, // CPU time limit exceeded (4.2BSD)
+      SIGXFSZ, // File size limit exceeded (4.2BSD)
+    };
+
+    bool success {true};
+
+    for (size_t i = 0; i < _posix_signals.size(); ++i) {
+      struct sigaction action;
+      memset(&action, 0, sizeof action);
+      action.sa_flags =
+          static_cast<int>(SA_SIGINFO | SA_ONSTACK | SA_NODEFER | SA_RESETHAND);
+      sigfillset(&action.sa_mask);
+      sigdelset(&action.sa_mask, _posix_signals[i]);
+      action.sa_sigaction = &sigHandler;
+      int r = sigaction(_posix_signals[i], &action, nullptr);
+      if (r < 0)
+        success = false;
+    }
+  }
+  static void sigHandler(int signo, siginfo_t *info, void *_ctx) {
+    handleSignal(signo, info, _ctx);
+    raise(info->si_signo);
+
+    // terminate the process immediately.
+    puts("watf? exit");
+    _exit(EXIT_FAILURE);
+  }
+  static void handleSignal(int32_t, siginfo_t* info, void* ctx) {
+    ucontext_t *uctx = static_cast<ucontext_t *>(ctx);
+    StackTrace st;
+    auto traces = st.get();
+    for (auto const& t : traces) {
+      std::cout << t << std::endl;
+    }
+  }
+};
+
+SignalsHandling sh;
 
 }  // namespace nih
 
