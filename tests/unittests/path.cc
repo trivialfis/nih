@@ -60,4 +60,31 @@ TEST(Path, Test) {
   ASSERT_FALSE(file.isSymlink());
 }
 
+TEST(Path, Dirname) {
+  {
+    Path p{"/usr/lib/"};
+    ASSERT_EQ(p.dirname(), Path{"/usr"});
+  }
+  {
+    Path p{"/usr/"};
+    ASSERT_EQ(p.dirname(), Path{"/"});
+  }
+  {
+    Path p{"usr"};
+    ASSERT_EQ(p.dirname(), Path{"."});
+  }
+  {
+    Path p{"/"};
+    ASSERT_EQ(p.dirname(), Path{"/"});
+  }
+  {
+    Path p{"."};
+    ASSERT_EQ(p.dirname(), Path{"."});
+  }
+  {
+    Path p{".."};
+    ASSERT_EQ(p.dirname(), Path{"."});
+  }
+}
+
 }  // namespace nih

@@ -56,20 +56,30 @@ TEST(Strings, Strip) {
 }
 
 TEST(Strings, Split) {
-  std::string input {"Hello, world"};
-  std::vector<std::string> result;
-  split(input, &result, [](char c){ return c == ','; });
-  ASSERT_EQ(result.size(), 2);
-  ASSERT_EQ(result.at(0), "Hello");
-  ASSERT_EQ(result.at(1), " world");
+  {
+    std::string input {"Hello, world"};
+    std::vector<std::string> result;
+    split(input, &result, [](char c){ return c == ','; });
+    ASSERT_EQ(result.size(), 2);
+    ASSERT_EQ(result.at(0), "Hello");
+    ASSERT_EQ(result.at(1), " world");
 
-  input = "Hello";
-  split(input, &result, [](char c){ return c == ','; });
-  ASSERT_EQ(result.at(2), "Hello");
+    input = "Hello";
+    split(input, &result, [](char c){ return c == ','; });
+    ASSERT_EQ(result.at(2), "Hello");
 
-  input = "";
-  split(input, &result, [](char c){ return c == ','; });
-  ASSERT_EQ(result.size(), 3);
+    input = "";
+    split(input, &result, [](char c){ return c == ','; });
+    ASSERT_EQ(result.size(), 3);
+  }
+
+  {
+    std::string input {"foo bar"};
+    auto result = split(input, [](char c){ return c == ' '; });
+    ASSERT_EQ(result.size(), 2);
+    ASSERT_EQ(result.front(), "foo");
+    ASSERT_EQ(result.back(), "bar");
+  }
 }
 
 }  // namespace nih

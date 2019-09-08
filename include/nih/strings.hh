@@ -45,6 +45,13 @@ void split(std::string const& input, std::vector<std::string>* result,
 }
 
 template <typename Functor>
+std::vector<std::string> split(std::string const& input, Functor func) {
+  std::vector<std::string> ret;
+  split(input, &ret, func);
+  return ret;
+}
+
+template <typename Functor>
 std::string strip(std::string const& str, Functor func) {
   NihInt prefix_count = 0;
   for (char c : str) {

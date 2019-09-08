@@ -57,6 +57,8 @@ class Path {
     return *this;
   }
 
+  bool operator==(Path const& that) const { return _path == that._path; }
+
   Path operator+(Path const& that) const {
     return join(*this, that);
   }
@@ -66,6 +68,7 @@ class Path {
   }
 
   std::string const& str() const { return _path; }
+  Path dirname() const;
 
   bool isFile() const;
   bool isDir() const;

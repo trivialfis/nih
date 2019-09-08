@@ -17,8 +17,10 @@
  */
 #include <unistd.h>
 #include <sys/stat.h>
+#include <numeric>
 #include "nih/path.hh"
 #include "nih/logging.hh"
+#include "nih/strings.hh"
 
 namespace nih {
 Path Path::join(Path const& lhs, Path const& rhs) {
@@ -52,9 +54,30 @@ Path Path::join(Path const& lhs, Path const& rhs) {
 Path Path::curdir() {
   char buff[FILENAME_MAX];
   auto ptr = getcwd(buff, FILENAME_MAX);
-  NIH_ASSERT(ptr) << strerror(errno);
+  NIH_ASSERT(ptr) << std::string{strerror(errno)};
   Path ret {buff};
   return ret;
+}
+
+Path Path::dirname() const {
+  // `.` -> `.`
+  if (_path.size() == 1 && _path.front() == '.') {
+    return *this;
+  }
+
+  auto splited = split(_path, [](char c) { return c == '/'; });
+
+  // single word path, like `usr`.
+  if (splited.size() == 1 && _path.size() > 1 && _path.front() != '/') {
+    return Path{"."};
+  }
+
+  std::string dir_name { (_path.size() > 0 && _path.front() == '/') ? "/" : "" };
+  dir_name = std::accumulate(splited.cbegin(), splited.cend() - 1, dir_name);
+  if (dir_name.size() > 1 && dir_name.back() == '/') {
+    dir_name = dir_name.substr(0, dir_name.size() - 1);
+  }
+  return Path{dir_name};
 }
 
 bool Path::isFile() const {
@@ -74,5 +97,4 @@ bool Path::isSymlink() const {
   stat(_path.c_str(), &path_stat);
   return static_cast<bool>(S_ISLNK(path_stat.st_mode));
 }
-
 }  // namespace nih
