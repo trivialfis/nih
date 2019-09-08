@@ -24,8 +24,9 @@
 #include <memory>
 #include <sstream>
 
-#include "errors.hh"
-#include "uri.hh"
+#include <nih/config.hh>
+#include <nih/errors.hh>
+#include <nih/uri.hh>
 
 namespace nih {
 
@@ -121,37 +122,37 @@ class Log {
   if (::nih::Log::shouldLog(::nih::Log::ErrorType::kDebug))             \
     ::nih::Log().log(ERROR_FILE_LINE, ::nih::Log::ErrorType::kDebug)
 
-#define NIH_ASSERT(cond)                        \
-    if (! (cond) ) LOG(FATAL) << # cond << "\n" \
+#define NIH_ASSERT(cond)                                                \
+  if (NIH_EXPECT(! (cond), false) ) LOG(FATAL) << # cond << "\n"        \
 
 
 #define NIH_ASSERT_GT(lhs, rhs)                                         \
-  if ((lhs) <= (rhs))                                                   \
+  if (NIH_EXPECT((lhs) <= (rhs), false))                                \
     LOG(FATAL) << "ASSERT_GT: " << # lhs << ": " << (lhs) << ", " <<    \
         # rhs ": " << (rhs)
 
 #define NIH_ASSERT_GE(lhs, rhs)                                         \
-  if ((lhs) < (rhs))                                                    \
+  if (NIH_EXPECT((lhs) < (rhs), false))                                 \
     LOG(FATAL) << "ASSERT_GE: " << # lhs << ": " << (lhs) << ", " <<    \
         # rhs ": " << (rhs)
 
 #define NIH_ASSERT_EQ(lhs, rhs)                                         \
-  if ((lhs) != (rhs))                                                   \
+  if (NIH_EXPECT((lhs) != (rhs), false))                                \
     LOG(FATAL) << "ASSERT_EQ: " << # lhs << ": " << (lhs) << ", " <<    \
         # rhs ": " << (rhs)
 
 #define NIH_ASSERT_NE(lhs, rhs)                                         \
-  if ((lhs) == (rhs))                                                   \
+  if (NIH_EXPECT((lhs) == (rhs), false))                                \
     LOG(FATAL) << "ASSERT_NE: " << # lhs << ": " << (lhs) << ", " <<    \
         # rhs ": " << (rhs)
 
 #define NIH_ASSERT_LE(lhs, rhs)                                         \
-  if ((lhs) > (rhs))                                                    \
+  if (NIH_EXPECT((lhs) > (rhs), false))                                 \
     LOG(FATAL) << "ASSERT_LE: " << # lhs << ": " << (lhs) << ", " <<    \
         # rhs ": " << (rhs)
 
 #define NIH_ASSERT_LT(lhs, rhs)                                         \
-  if ((lhs) >= (rhs))                                                   \
+  if (NIH_EXPECT((lhs) >= (rhs), false))                                \
     LOG(FATAL) << "ASSERT_LT: " << # lhs << ": " << (lhs) << ", " <<    \
         # rhs ": " << (rhs)
 

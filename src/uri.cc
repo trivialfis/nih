@@ -23,9 +23,9 @@
 #include <cstdio>
 #include <map>
 
-#include <nih/errors.hh>
-#include <nih/uri.hh>
-#include <nih/strings.hh>
+#include "nih/errors.hh"
+#include "nih/uri.hh"
+#include "nih/strings.hh"
 #include "nih/logging.hh"
 
 namespace nih {
