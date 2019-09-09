@@ -122,6 +122,11 @@ class Log {
   if (::nih::Log::shouldLog(::nih::Log::ErrorType::kDebug))             \
     ::nih::Log().log(ERROR_FILE_LINE, ::nih::Log::ErrorType::kDebug)
 
+#define LOG_IF(cond, verbosity)                 \
+  if ((cond))                                   \
+    LOG(verbosity)                              \
+
+
 #define NIH_ASSERT(cond)                                                \
   if (NIH_EXPECT(! (cond), false) ) LOG(FATAL) << # cond << "\n"        \
 

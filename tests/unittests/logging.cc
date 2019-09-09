@@ -121,4 +121,11 @@ TEST(Logging, Segfault) {
   EXPECT_DEATH({std::cout << *ptr << std::endl;}, "");  // NOLINT
 }
 
+TEST(Logging, If) {
+  auto capture {CapturedStream(STDERR_FILENO)};
+  LOG_IF(1 < 2, WARNING) << "1 < 2";
+  auto output = capture.getCapturedString();
+  ASSERT_NE(output.find("1 < 2"), std::string::npos);
+}
+
 }  // namespace nih
