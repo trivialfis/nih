@@ -65,7 +65,7 @@ class Range {
       ++(*this);
       return ret;
     }
-    RangeIterator operator--() {
+    RangeIterator& operator--() {
       index_ -= step_;
       return *this;
     }
