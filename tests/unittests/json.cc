@@ -181,6 +181,20 @@ TEST(Json, ParseArray) {
   ASSERT_EQ(get<Integer>(v0["depth"]), 3);
 }
 
+TEST(Json, EmptyObject) {
+  std::string str = R"json(
+{
+  "rank": 1,
+  "statistic": {
+
+  }
+}
+)json";
+  std::stringstream iss(str);
+  auto json = Json::load(StringView{str.c_str(), str.size()});
+  ASSERT_TRUE(IsA<Object>(json["statistic"]));
+}
+
 TEST(Json, EmptyArray) {
   std::string str = R"json(
 {

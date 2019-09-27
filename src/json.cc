@@ -501,9 +501,12 @@ Json JsonReader::ParseArray() {
 }
 
 Json JsonReader::ParseObject() {
-  char ch = GetChar('{');
+  GetChar('{');
 
   std::map<std::string, Json> data;
+  SkipSpaces();
+  char ch = PeekNextChar();
+
   if (ch == '}') return Json(std::move(data));
 
   while (true) {
