@@ -360,20 +360,32 @@ Json JsonReader::Parse() {
     char c = PeekNextChar();
     if (c == -1) { break; }
 
-    if (c == '{') {
-      return ParseObject();
-    } else if ( c == '[' ) {
-      return ParseArray();
-    } else if ( c == '-' || std::isdigit(c) ) {
-      return ParseNumber();
-    } else if ( c == '\"' ) {
-      return ParseString();
-    } else if ( c == 't' || c == 'f' ) {
-      return ParseBoolean();
-    } else if (c == 'n') {
-      return ParseNull();
-    } else {
-      Error("Unknown construct");
+    switch (c) {
+      case '{':
+        return ParseObject();
+      case '[':
+        return ParseArray();
+      case '-':
+      case '0':
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+      case '6':
+      case '7':
+      case '8':
+      case '9':
+        return ParseNumber();
+      case '\"':
+        return ParseString();
+      case 't':
+      case 'f':
+        return ParseBoolean();
+      case 'n':
+        return ParseNull();
+      default:
+        Error("Unknown construct");
     }
   }
   return Json();
