@@ -18,6 +18,8 @@
 #ifndef _BASIC_LOGGING_HH_
 #define _BASIC_LOGGING_HH_
 
+#include <libgen.h>
+
 #include <cinttypes>
 #include <cstring>
 #include <iostream>
