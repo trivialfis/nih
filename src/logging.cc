@@ -126,7 +126,9 @@ class LogImpl {
   }
 };
 
-Log::Log() : error_type_{defaultVerbosity()} {}
+Log::Log() : error_type_{defaultVerbosity()} {
+  stream_.precision();
+}
 
 Log::ErrorType Log::global_ = Log::defaultVerbosity();
 

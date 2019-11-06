@@ -87,7 +87,7 @@ class Log {
 }  // namespace nih
 
 
-#define ERROR_FILE_LINE std::string{basename(__FILE__)} + "(" + std::to_string(__LINE__) + "): "
+#define ERROR_FILE_LINE std::string{__FILE__} + "(" + std::to_string(__LINE__) + "): "
 
 #if defined(LOG)
 #warning "Undefining macro `LOG`'"
