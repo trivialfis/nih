@@ -27,12 +27,8 @@
 
 namespace nih {
 
-struct UnsignedFloatBase2 {
-  uint32_t mantissa;
-  // Decimal exponent's range is -45 to 38
-  // inclusive, and can fit in a short if needed.
-  uint32_t exponent;
-};
+
+struct UnsignedFloatBase2;
 
 struct UnsignedFloatBase10 {
   uint32_t mantissa;
@@ -46,15 +42,39 @@ struct IEEE754 {
   static constexpr uint32_t kFloatBias = 127;
   static constexpr uint32_t kFloatExponentBits = 8;
 
-  static void Decode(float f, UnsignedFloatBase2* uf, bool* signbit) {
-    uint32_t bits;
-    std::memcpy(&bits, &f, sizeof(bits));
-    // Decode bits into sign, mantissa, and exponent.
-    *signbit = std::signbit(f);
-    uf->mantissa = bits & ((1u << kFloatMantissaBits) - 1);
-    uf->exponent = (bits >> IEEE754::kFloatMantissaBits) &
-                   ((1u << IEEE754::kFloatExponentBits) - 1);
+  static void Decode(float f, UnsignedFloatBase2* uf, bool* signbit);
+};
+
+struct UnsignedFloatBase2 {
+  uint32_t mantissa;
+  // Decimal exponent's range is -45 to 38
+  // inclusive, and can fit in a short if needed.
+  uint32_t exponent;
+
+  bool Infinite() const {
+    return exponent == ((1u << IEEE754::kFloatExponentBits) - 1u);
   }
+  bool Zero() const {
+    return mantissa == 0 && exponent == 0;
+  }
+};
+
+inline void IEEE754::Decode(float f, UnsignedFloatBase2 *uf, bool *signbit) {
+  uint32_t bits;
+  std::memcpy(&bits, &f, sizeof(bits));
+  // Decode bits into sign, mantissa, and exponent.
+  *signbit = std::signbit(f);
+  uf->mantissa = bits & ((1u << kFloatMantissaBits) - 1);
+  uf->exponent = (bits >> IEEE754::kFloatMantissaBits) &
+                 ((1u << IEEE754::kFloatExponentBits) - 1);
+}
+
+// Represents the interval of information-preserving outputs
+struct MantissaInteval {
+  int32_t exponent;
+  uint32_t mantissa_low;
+  uint32_t mantissa_correct;
+  uint32_t mantissa_high;
 };
 
 static inline int
@@ -192,64 +212,155 @@ struct PowerBaseComputer {
     assert(e <= 1 << 15);
     return (uint32_t)((((uint64_t)e) * 196742565691928ull) >> 48);
   }
+
+  static void ToDecimalBase(bool acceptBounds, uint32_t mmShift,
+                            MantissaInteval base2,
+                            MantissaInteval* base10,
+                            // int32_t const exponent_base2,
+                            // uint32_t const mantissa_low,
+                            // uint32_t const mantissa_v,
+                            // uint32_t const mantissa_high,
+
+                            // uint32_t *mantissa10_v, uint32_t base10->mantissa_high,
+                            // uint32_t *mantissa10_low, int32_t *exponent_base10,
+                            bool *vmIsTrailingZeros, bool *vrIsTrailingZeros) {
+    uint8_t lastRemovedDigit = 0;
+    if (base2.exponent >= 0) {
+      const uint32_t q = PowerBaseComputer::log10Pow2(base2.exponent);
+      base10->exponent = (int32_t)q;
+      const int32_t k = PowerBaseComputer::kFloatPow5InvBitcount +
+                        PowerBaseComputer::Pow5Bits(static_cast<int32_t>(q)) -
+                        1;
+      const int32_t i = - base2.exponent + (int32_t)q + k;
+      base10->mantissa_low =
+          PowerBaseComputer::MulPow5InvDivPow2(base2.mantissa_low, q, i);
+      base10->mantissa_correct = PowerBaseComputer::MulPow5InvDivPow2(base2.mantissa_correct, q, i);
+      base10->mantissa_high =
+          PowerBaseComputer::MulPow5InvDivPow2(base2.mantissa_high, q, i);
+
+      if (q != 0 && (base10->mantissa_high - 1) / 10 <= base10->mantissa_low / 10) {
+        // We need to know one removed digit even if we are not going to loop
+        // below. We could use q = X - 1 above, except that would require 33
+        // bits for the result, and we've found that 32-bit arithmetic is faster
+        // even on 64-bit machines.
+        const int32_t l = PowerBaseComputer::kFloatPow5InvBitcount +
+                          PowerBaseComputer::Pow5Bits((int32_t)(q - 1)) - 1;
+        lastRemovedDigit = (uint8_t)(
+            PowerBaseComputer::MulPow5InvDivPow2(
+                base2.mantissa_correct, q - 1, -base2.exponent + (int32_t)q - 1 + l) %
+            10);
+      }
+      if (q <= 9) {
+        // The largest power of 5 that fits in 24 bits is 5^10, but q <= 9 seems
+        // to be safe as well. Only one of mp, mv, and mm can be a multiple of
+        // 5, if any.
+        if (base2.mantissa_correct % 5 == 0) {
+          *vrIsTrailingZeros =
+              PowerBaseComputer::multipleOfPowerOf5(base2.mantissa_correct, q);
+        } else if (acceptBounds) {
+          *vmIsTrailingZeros =
+              PowerBaseComputer::multipleOfPowerOf5(base2.mantissa_low, q);
+        } else {
+          base10->mantissa_high -=
+              PowerBaseComputer::multipleOfPowerOf5(base2.mantissa_high, q);
+        }
+      }
+    } else {
+      const uint32_t q = PowerBaseComputer::Log10Pow5(-base2.exponent);
+      base10->exponent = (int32_t)q + base2.exponent;
+      const int32_t i = -base2.exponent - (int32_t)q;
+      const int32_t k = PowerBaseComputer::Pow5Bits(i) -
+                        PowerBaseComputer::kFloatPow5Bitcount;
+      int32_t j = (int32_t)q - k;
+      base10->mantissa_correct =
+          PowerBaseComputer::MulPow5divPow2(base2.mantissa_correct, (uint32_t)i, j);
+      base10->mantissa_high =
+          PowerBaseComputer::MulPow5divPow2(base2.mantissa_high, (uint32_t)i, j);
+      base10->mantissa_low =
+          PowerBaseComputer::MulPow5divPow2(base2.mantissa_low, (uint32_t)i, j);
+
+      if (q != 0 && (base10->mantissa_high - 1) / 10 <= base10->mantissa_low / 10) {
+        j = (int32_t)q - 1 -
+            (PowerBaseComputer::Pow5Bits(i + 1) -
+             PowerBaseComputer::kFloatPow5Bitcount);
+        lastRemovedDigit =
+            (uint8_t)(PowerBaseComputer::MulPow5divPow2(base2.mantissa_correct,
+                                                        (uint32_t)(i + 1), j) %
+                      10);
+      }
+      if (q <= 1) {
+        // {vr,vp,vm} is trailing zeros if {mv,mp,mm} has at least q trailing 0
+        // bits. mv = 4 * m2, so it always has at least two trailing 0 bits.
+        *vrIsTrailingZeros = true;
+        if (acceptBounds) {
+          // mm = mv - 1 - mmShift, so it has 1 trailing 0 bit iff mmShift == 1.
+          *vmIsTrailingZeros = mmShift == 1;
+        } else {
+          // mp = mv + 2, so it always has at least one trailing 0 bit.
+          --base10->mantissa_high;
+        }
+      } else if (q < 31) { // TODO(ulfjack): Use a tighter bound here.
+        *vrIsTrailingZeros =
+            PowerBaseComputer::multipleOfPowerOf2(base2.mantissa_correct, q - 1);
+      }
+    }
+  }
 };
 
 inline UnsignedFloatBase10
 ShortestRepresentation(bool mantissa_low_is_trailing_zeros, bool vrIsTrailingZeros,
-                       const bool acceptBounds, int32_t exponent_base10,
-                       uint32_t mantissa10_low, uint32_t mantissa10_v,
-                       uint32_t mantissa10_high) {
+                       const bool acceptBounds, MantissaInteval base10) {
   int32_t removed = 0;
   uint32_t output;
   uint8_t last_removed_digit = 0;
   if (mantissa_low_is_trailing_zeros || vrIsTrailingZeros) {
     // General case, which happens rarely (~4.0%).
-    while (mantissa10_high / 10 > mantissa10_low / 10) {
-      mantissa_low_is_trailing_zeros &= mantissa10_low % 10 == 0;
+    while (base10.mantissa_high / 10 > base10.mantissa_low / 10) {
+      mantissa_low_is_trailing_zeros &= base10.mantissa_low % 10 == 0;
       vrIsTrailingZeros &= last_removed_digit == 0;
-      last_removed_digit = (uint8_t)(mantissa10_v % 10);
-      mantissa10_v /= 10;
-      mantissa10_high /= 10;
-      mantissa10_low /= 10;
+      last_removed_digit = (uint8_t)(base10.mantissa_correct % 10);
+      base10.mantissa_correct /= 10;
+      base10.mantissa_high /= 10;
+      base10.mantissa_low /= 10;
       ++removed;
     }
 
     if (mantissa_low_is_trailing_zeros) {
-      while (mantissa10_low % 10 == 0) {
+      while (base10.mantissa_low % 10 == 0) {
         vrIsTrailingZeros &= last_removed_digit == 0;
-        last_removed_digit = (uint8_t)(mantissa10_v % 10);
-        mantissa10_v /= 10;
-        mantissa10_high /= 10;
-        mantissa10_low /= 10;
+        last_removed_digit = (uint8_t)(base10.mantissa_correct % 10);
+        base10.mantissa_correct /= 10;
+        base10.mantissa_high /= 10;
+        base10.mantissa_low /= 10;
         ++removed;
       }
     }
 
-    if (vrIsTrailingZeros && last_removed_digit == 5 && mantissa10_v % 2 == 0) {
+    if (vrIsTrailingZeros && last_removed_digit == 5 && base10.mantissa_correct % 2 == 0) {
       // Round even if the exact number is .....50..0.
       last_removed_digit = 4;
     }
     // We need to take vr + 1 if vr is outside bounds or we need to round up.
-    output = mantissa10_v + ((mantissa10_v == mantissa10_low &&
+    output = base10.mantissa_correct + ((base10.mantissa_correct == base10.mantissa_low &&
                               (!acceptBounds || !mantissa_low_is_trailing_zeros)) ||
                              last_removed_digit >= 5);
   } else {
     // Specialized for the common case (~96.0%). Percentages below are relative
     // to this. Loop iterations below (approximately): 0: 13.6%, 1: 70.7%,
     // 2: 14.1%, 3: 1.39%, 4: 0.14%, 5+: 0.01%
-    while (mantissa10_high / 10 > mantissa10_low / 10) {
-      last_removed_digit = (uint8_t)(mantissa10_v % 10);
-      mantissa10_v /= 10;
-      mantissa10_high /= 10;
-      mantissa10_low /= 10;
+    while (base10.mantissa_high / 10 > base10.mantissa_low / 10) {
+      last_removed_digit = (uint8_t)(base10.mantissa_correct % 10);
+      base10.mantissa_correct /= 10;
+      base10.mantissa_high /= 10;
+      base10.mantissa_low /= 10;
       ++removed;
     }
 
     // We need to take vr + 1 if vr is outside bounds or we need to round up.
-    output = mantissa10_v +
-             (mantissa10_v == mantissa10_low || last_removed_digit >= 5);
+    output = base10.mantissa_correct +
+             (base10.mantissa_correct == base10.mantissa_low || last_removed_digit >= 5);
   }
-  const int32_t exp = exponent_base10 + removed;
+  const int32_t exp = base10.exponent + removed;
 
   UnsignedFloatBase10 fd;
   fd.exponent = exp;
@@ -257,99 +368,45 @@ ShortestRepresentation(bool mantissa_low_is_trailing_zeros, bool vrIsTrailingZer
   return fd;
 }
 
-inline UnsignedFloatBase10 float2decimal(UnsignedFloatBase2 f) {
-  int32_t exponent_base2;
+inline UnsignedFloatBase10 Binary2Decimal(UnsignedFloatBase2 f) {
+  // int32_t exponent_base2;
+  MantissaInteval base2_range;
   uint32_t mantissa_base2;
   if (f.exponent == 0) {
     // We subtract 2 so that the bounds computation has 2 additional bits.
-    exponent_base2 = 1 - IEEE754::kFloatBias - IEEE754::kFloatMantissaBits - 2;
+    base2_range.exponent = 1 - IEEE754::kFloatBias - IEEE754::kFloatMantissaBits - 2;
     mantissa_base2 = f.mantissa;
   } else {
-    exponent_base2 = (int32_t)f.exponent - IEEE754::kFloatBias - IEEE754::kFloatMantissaBits - 2;
+    base2_range.exponent = (int32_t)f.exponent - IEEE754::kFloatBias - IEEE754::kFloatMantissaBits - 2;
     mantissa_base2 = (1u << IEEE754::kFloatMantissaBits) | f.mantissa;
   }
   const bool even = (mantissa_base2 & 1) == 0;
   const bool acceptBounds = even;
 
   // Step 2: Determine the interval of valid decimal representations.
-  const uint32_t mantissa_v = 4 * mantissa_base2;
-  const uint32_t mantissa_high = 4 * mantissa_base2 + 2;
+  base2_range.mantissa_correct = 4 * mantissa_base2;
+  // const uint32_t mantissa_v = 4 * mantissa_base2;
+  // const uint32_t mantissa_high = 4 * mantissa_base2 + 2;
+  base2_range.mantissa_high = 4 * mantissa_base2 + 2;
   // Implicit bool -> int conversion. True is 1, false is 0.
   const uint32_t mmShift = f.mantissa != 0 || f.exponent <= 1;
-  const uint32_t mantissa_low = 4 * mantissa_base2 - 1 - mmShift;
+  base2_range.mantissa_low = 4 * mantissa_base2 - 1 - mmShift;
+  // const uint32_t mantissa_low = 4 * mantissa_base2 - 1 - mmShift;
 
   // Step 3: Convert to a decimal power base using 64-bit arithmetic.
-  uint32_t mantissa10_v, mantissa10_high, mantissa10_low;
-  int32_t exponent_base10;
+  // uint32_t mantissa10_v, mantissa10_high, mantissa10_low;
+  MantissaInteval base10_range;
+  // int32_t exponent_base10;
   bool vmIsTrailingZeros = false;
   bool vrIsTrailingZeros = false;
   uint8_t lastRemovedDigit = 0;
-  if (exponent_base2 >= 0) {
-    const uint32_t q = PowerBaseComputer::log10Pow2(exponent_base2);
-    exponent_base10 = (int32_t)q;
-    const int32_t k = PowerBaseComputer::kFloatPow5InvBitcount + PowerBaseComputer::Pow5Bits(static_cast<int32_t>(q)) - 1;
-    const int32_t i = -exponent_base2 + (int32_t)q + k;
-    mantissa10_low = PowerBaseComputer::MulPow5InvDivPow2(mantissa_low, q, i);
-    mantissa10_v =   PowerBaseComputer::MulPow5InvDivPow2(mantissa_v, q, i);
-    mantissa10_high = PowerBaseComputer::MulPow5InvDivPow2(mantissa_high, q, i);
-
-    if (q != 0 && (mantissa10_high - 1) / 10 <= mantissa10_low / 10) {
-      // We need to know one removed digit even if we are not going to loop
-      // below. We could use q = X - 1 above, except that would require 33 bits
-      // for the result, and we've found that 32-bit arithmetic is faster even
-      // on 64-bit machines.
-      const int32_t l =
-          PowerBaseComputer::kFloatPow5InvBitcount + PowerBaseComputer::Pow5Bits((int32_t)(q - 1)) - 1;
-      lastRemovedDigit = (uint8_t)(
-          PowerBaseComputer::MulPow5InvDivPow2(mantissa_v, q - 1, -exponent_base2 + (int32_t)q - 1 + l) % 10);
-    }
-    if (q <= 9) {
-      // The largest power of 5 that fits in 24 bits is 5^10, but q <= 9 seems
-      // to be safe as well. Only one of mp, mv, and mm can be a multiple of 5,
-      // if any.
-      if (mantissa_v % 5 == 0) {
-        vrIsTrailingZeros = PowerBaseComputer::multipleOfPowerOf5(mantissa_v, q);
-      } else if (acceptBounds) {
-        vmIsTrailingZeros = PowerBaseComputer::multipleOfPowerOf5(mantissa_low, q);
-      } else {
-        mantissa10_high -= PowerBaseComputer::multipleOfPowerOf5(mantissa_high, q);
-      }
-    }
-  } else {
-    const uint32_t q = PowerBaseComputer::Log10Pow5(-exponent_base2);
-    exponent_base10 = (int32_t)q + exponent_base2;
-    const int32_t i = -exponent_base2 - (int32_t)q;
-    const int32_t k = PowerBaseComputer::Pow5Bits(i) - PowerBaseComputer::kFloatPow5Bitcount;
-    int32_t j = (int32_t)q - k;
-    mantissa10_v = PowerBaseComputer::MulPow5divPow2(mantissa_v, (uint32_t)i, j);
-    mantissa10_high = PowerBaseComputer::MulPow5divPow2(mantissa_high, (uint32_t)i, j);
-    mantissa10_low = PowerBaseComputer::MulPow5divPow2(mantissa_low, (uint32_t)i, j);
-
-    if (q != 0 && (mantissa10_high - 1) / 10 <= mantissa10_low / 10) {
-      j = (int32_t)q - 1 - (PowerBaseComputer::Pow5Bits(i + 1) - PowerBaseComputer::kFloatPow5Bitcount);
-      lastRemovedDigit =
-          (uint8_t)(PowerBaseComputer::MulPow5divPow2(mantissa_v, (uint32_t)(i + 1), j) % 10);
-    }
-    if (q <= 1) {
-      // {vr,vp,vm} is trailing zeros if {mv,mp,mm} has at least q trailing 0
-      // bits. mv = 4 * m2, so it always has at least two trailing 0 bits.
-      vrIsTrailingZeros = true;
-      if (acceptBounds) {
-        // mm = mv - 1 - mmShift, so it has 1 trailing 0 bit iff mmShift == 1.
-        vmIsTrailingZeros = mmShift == 1;
-      } else {
-        // mp = mv + 2, so it always has at least one trailing 0 bit.
-        --mantissa10_high;
-      }
-    } else if (q < 31) { // TODO(ulfjack): Use a tighter bound here.
-      vrIsTrailingZeros = PowerBaseComputer::multipleOfPowerOf2(mantissa_v, q - 1);
-    }
-  }
+  PowerBaseComputer::ToDecimalBase(acceptBounds, mmShift, base2_range,
+                                   &base10_range, &vmIsTrailingZeros, &vrIsTrailingZeros);
 
   // Step 4: Find the shortest decimal representation in the interval of valid
   // representations.
   auto out = ShortestRepresentation(vmIsTrailingZeros, vrIsTrailingZeros, acceptBounds,
-                                    exponent_base10, mantissa10_low, mantissa10_v, mantissa10_high);
+                                    base10_range);
   return out;
 }
 
@@ -385,8 +442,8 @@ static inline uint32_t decimalLength9(const uint32_t v) {
   return 1;
 }
 
-static inline int to_chars_impl(UnsignedFloatBase10 v, const bool sign,
-                                char *const result) {
+inline int PrintBase10Float(UnsignedFloatBase10 v, const bool sign,
+                            char *const result) {
   // Step 5: Print the decimal representation.
   int index = 0;
   if (sign) {
@@ -465,19 +522,17 @@ inline uint32_t Float2Bits(const float f) {
 inline int32_t f2s_buffered_n(float f, char * const result) {
   // Step 1: Decode the floating-point number, and unify normalized and
   // subnormal cases.
-  const uint32_t bits = Float2Bits(f);
   UnsignedFloatBase2 uf;
   bool sign;
   IEEE754::Decode(f, &uf, &sign);
 
     // Case distinction; exit early for the easy cases.
-  if (uf.exponent == ((1u << IEEE754::kFloatExponentBits) - 1u) ||
-      (uf.exponent == 0 && uf.mantissa == 0)) {
+  if (uf.Infinite() || uf.Zero()) {
     return SpecialStr(result, sign, uf.exponent, uf.mantissa);
   }
 
-  const UnsignedFloatBase10 v = float2decimal(uf);
-  return to_chars_impl(v, sign, result);
+  const UnsignedFloatBase10 v = Binary2Decimal(uf);
+  return PrintBase10Float(v, sign, result);
 }
 
 } // namespace nih
