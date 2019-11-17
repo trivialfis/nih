@@ -34,26 +34,17 @@ struct to_chars_result {
 
 namespace {
 
-constexpr uint32_t ten2() {
-  return 10 * 10;
-}
-constexpr uint32_t ten3() {
-  return 10 * ten2();
-}
-constexpr uint32_t ten4() {
-  return ten2() * ten2();
-}
-
-constexpr uint32_t shortestDigit10Impl(uint64_t value, uint32_t n) {
+constexpr uint32_t ShortestDigit10Impl(uint64_t value, uint32_t n) {
+  // Should trigger tail recursion optimization.
   return value < 10 ? n :
-      (value < ten2() ? n + 1 :
-       (value < ten3() ? n + 2 :
-        (value < ten4() ? n + 3 :
-         shortestDigit10Impl(value / ten4(), n + 4))));
+      (value < Tens(2) ? n + 1 :
+       (value < Tens(3) ? n + 2 :
+        (value < Tens(4) ? n + 3 :
+         ShortestDigit10Impl(value / Tens(4), n + 4))));
 }
 
-constexpr uint32_t shortestDigit10(uint64_t value) {
-  return shortestDigit10Impl(value, 1);
+constexpr uint32_t ShortestDigit10(uint64_t value) {
+  return ShortestDigit10Impl(value, 1);
 }
 
 // This is an implementation for base 10 inspired by the one in libstdc++v3.  The general
@@ -64,9 +55,9 @@ constexpr uint32_t shortestDigit10(uint64_t value) {
 // probably with better performance as they are more complicated.
 inline void itoaUnsignedImpl(char* first, uint32_t length, uint64_t value) {
   uint32_t position = length - 1;
-  while (value > ten2()) {
-    auto const num = (value % ten2()) * 2;
-    value /= ten2();
+  while (value > Tens(2)) {
+    auto const num = (value % Tens(2)) * 2;
+    value /= Tens(2);
     first[position] = kItoaLut[num + 1];
     first[position - 1] = kItoaLut[num];
     position -= 2;
@@ -82,7 +73,7 @@ inline void itoaUnsignedImpl(char* first, uint32_t length, uint64_t value) {
 
 inline to_chars_result toCharsUnsignedImpl(char *first, char *last,
                                            uint64_t const value) {
-  const uint32_t output_len = shortestDigit10(value);
+  const uint32_t output_len = ShortestDigit10(value);
   to_chars_result ret;
   if (NIH_EXPECT(std::distance(first, last) == 0, false)) {
     ret.ec = std::errc::value_too_large;

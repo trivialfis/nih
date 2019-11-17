@@ -169,16 +169,16 @@ struct RyuPowLogUtils {
     //   x * (y_high + y_low) = (x * y_high) + (x * y_low)
     //
     // For more general case 64-bit * 64-bit, see https://stackoverflow.com/a/1541458
-    const uint32_t y_low = (uint32_t)(y);
-    const uint32_t y_high = (uint32_t)(y >> 32);
+    const uint32_t y_low = static_cast<uint32_t>(y);
+    const uint32_t y_high = static_cast<uint32_t>(y >> 32);
 
-    const uint64_t low = (uint64_t)x * y_low;
-    const uint64_t high = (uint64_t)x * y_high;
+    const uint64_t low = static_cast<uint64_t>(x) * y_low;
+    const uint64_t high = static_cast<uint64_t>(x) * y_high;
 
     const uint64_t sum = (low >> 32) + high;
     const uint64_t shifted_sum = sum >> (shift - 32);
 
-    return (uint32_t)shifted_sum;
+    return static_cast<uint32_t>(shifted_sum);
   }
 
   /*
@@ -206,6 +206,7 @@ struct RyuPowLogUtils {
     assert(e >= 0);
     assert(e <= 1 << 15);
     return (uint32_t)((((uint64_t)e) * 169464822037455ull) >> 49);
+    // return static_cast<uint32_t>(((static_cast<uint64_t>(e)) * 169464822037455ull) >> 49);
   }
 
   // Returns floor(e * log_10(5)).
@@ -221,92 +222,94 @@ struct RyuPowLogUtils {
 
 class PowerBaseComputer {
  private:
-  static void ToDecimalBase(bool acceptBounds, uint32_t mmShift,
-                            MantissaInteval base2,
-                            MantissaInteval* base10,
-                            bool *vmIsTrailingZeros, bool *vrIsTrailingZeros) {
-    uint8_t last_removed_digit = 0;
-    if (base2.exponent >= 0) {
-      const uint32_t q = RyuPowLogUtils::log10Pow2(base2.exponent);
-      base10->exponent = (int32_t)q;
-      const int32_t k = RyuPowLogUtils::kFloatPow5InvBitcount +
-                        RyuPowLogUtils::Pow5Bits(static_cast<int32_t>(q)) -
-                        1;
-      const int32_t i = - base2.exponent + (int32_t)q + k;
-      base10->mantissa_low =
-          RyuPowLogUtils::MulPow5InvDivPow2(base2.mantissa_low, q, i);
-      base10->mantissa_correct = RyuPowLogUtils::MulPow5InvDivPow2(base2.mantissa_correct, q, i);
-      base10->mantissa_high =
-          RyuPowLogUtils::MulPow5InvDivPow2(base2.mantissa_high, q, i);
+   static void ToDecimalBase(bool accept_bounds, uint32_t mmShift,
+                             MantissaInteval base2, MantissaInteval *base10,
+                             bool *vmIsTrailingZeros, bool *vrIsTrailingZeros) {
+     uint8_t last_removed_digit = 0;
+     if (base2.exponent >= 0) {
+       const uint32_t q = RyuPowLogUtils::log10Pow2(base2.exponent);
+       base10->exponent = static_cast<int32_t>(q);
+       const int32_t k = RyuPowLogUtils::kFloatPow5InvBitcount +
+                         RyuPowLogUtils::Pow5Bits(static_cast<int32_t>(q)) - 1;
+       const int32_t i = -base2.exponent + static_cast<int32_t>(q) + k;
+       base10->mantissa_low =
+           RyuPowLogUtils::MulPow5InvDivPow2(base2.mantissa_low, q, i);
+       base10->mantissa_correct =
+           RyuPowLogUtils::MulPow5InvDivPow2(base2.mantissa_correct, q, i);
+       base10->mantissa_high =
+           RyuPowLogUtils::MulPow5InvDivPow2(base2.mantissa_high, q, i);
 
-      if (q != 0 && (base10->mantissa_high - 1) / 10 <= base10->mantissa_low / 10) {
-        // We need to know one removed digit even if we are not going to loop
-        // below. We could use q = X - 1 above, except that would require 33
-        // bits for the result, and we've found that 32-bit arithmetic is faster
-        // even on 64-bit machines.
-        const int32_t l = RyuPowLogUtils::kFloatPow5InvBitcount +
-                          RyuPowLogUtils::Pow5Bits((int32_t)(q - 1)) - 1;
-        last_removed_digit =
-            static_cast<uint8_t>(RyuPowLogUtils::MulPow5InvDivPow2(
-                                     base2.mantissa_correct, q - 1,
-                                     -base2.exponent + (int32_t)q - 1 + l) %
-                                 10);
-      }
-      if (q <= 9) {
-        // The largest power of 5 that fits in 24 bits is 5^10, but q <= 9 seems
-        // to be safe as well. Only one of mp, mv, and mm can be a multiple of
-        // 5, if any.
-        if (base2.mantissa_correct % 5 == 0) {
-          *vrIsTrailingZeros =
-              RyuPowLogUtils::MultipleOfPowerOf5(base2.mantissa_correct, q);
-        } else if (acceptBounds) {
-          *vmIsTrailingZeros =
-              RyuPowLogUtils::MultipleOfPowerOf5(base2.mantissa_low, q);
-        } else {
-          base10->mantissa_high -=
-              RyuPowLogUtils::MultipleOfPowerOf5(base2.mantissa_high, q);
-        }
-      }
-    } else {
-      const uint32_t q = RyuPowLogUtils::Log10Pow5(-base2.exponent);
-      base10->exponent = (int32_t)q + base2.exponent;
-      const int32_t i = -base2.exponent - (int32_t)q;
-      const int32_t k = RyuPowLogUtils::Pow5Bits(i) -
-                        RyuPowLogUtils::kFloatPow5Bitcount;
-      int32_t j = (int32_t)q - k;
-      base10->mantissa_correct =
-          RyuPowLogUtils::MulPow5divPow2(base2.mantissa_correct, (uint32_t)i, j);
-      base10->mantissa_high =
-          RyuPowLogUtils::MulPow5divPow2(base2.mantissa_high, (uint32_t)i, j);
-      base10->mantissa_low =
-          RyuPowLogUtils::MulPow5divPow2(base2.mantissa_low, (uint32_t)i, j);
+       if (q != 0 &&
+           (base10->mantissa_high - 1) / 10 <= base10->mantissa_low / 10) {
+         // We need to know one removed digit even if we are not going to loop
+         // below. We could use q = X - 1 above, except that would require 33
+         // bits for the result, and we've found that 32-bit arithmetic is
+         // faster even on 64-bit machines.
+         const int32_t l = RyuPowLogUtils::kFloatPow5InvBitcount +
+                           RyuPowLogUtils::Pow5Bits((int32_t)(q - 1)) - 1;
+         last_removed_digit =
+             static_cast<uint8_t>(RyuPowLogUtils::MulPow5InvDivPow2(
+                                      base2.mantissa_correct, q - 1,
+                                      -base2.exponent + (int32_t)q - 1 + l) %
+                                  10);
+       }
+       if (q <= 9) {
+         // The largest power of 5 that fits in 24 bits is 5^10, but q <= 9
+         // seems to be safe as well. Only one of mp, mv, and mm can be a
+         // multiple of 5, if any.
+         if (base2.mantissa_correct % 5 == 0) {
+           *vrIsTrailingZeros =
+               RyuPowLogUtils::MultipleOfPowerOf5(base2.mantissa_correct, q);
+         } else if (accept_bounds) {
+           *vmIsTrailingZeros =
+               RyuPowLogUtils::MultipleOfPowerOf5(base2.mantissa_low, q);
+         } else {
+           base10->mantissa_high -=
+               RyuPowLogUtils::MultipleOfPowerOf5(base2.mantissa_high, q);
+         }
+       }
+     } else {
+       const uint32_t q = RyuPowLogUtils::Log10Pow5(-base2.exponent);
+       base10->exponent = static_cast<int32_t>(q) + base2.exponent;
+       const int32_t i = -base2.exponent - static_cast<int32_t>(q);
+       const int32_t k =
+           RyuPowLogUtils::Pow5Bits(i) - RyuPowLogUtils::kFloatPow5Bitcount;
+       int32_t j = (int32_t)q - k;
+       base10->mantissa_correct = RyuPowLogUtils::MulPow5divPow2(
+           base2.mantissa_correct, static_cast<uint32_t>(i), j);
+       base10->mantissa_high = RyuPowLogUtils::MulPow5divPow2(
+           base2.mantissa_high, static_cast<uint32_t>(i), j);
+       base10->mantissa_low = RyuPowLogUtils::MulPow5divPow2(
+           base2.mantissa_low, static_cast<uint32_t>(i), j);
 
-      if (q != 0 && (base10->mantissa_high - 1) / 10 <= base10->mantissa_low / 10) {
-        j = (int32_t)q - 1 -
-            (RyuPowLogUtils::Pow5Bits(i + 1) -
-             RyuPowLogUtils::kFloatPow5Bitcount);
-        last_removed_digit =
-            (uint8_t)(RyuPowLogUtils::MulPow5divPow2(base2.mantissa_correct,
-                                                        (uint32_t)(i + 1), j) %
-                      10);
-      }
-      if (q <= 1) {
-        // {vr,vp,vm} is trailing zeros if {mv,mp,mm} has at least q trailing 0
-        // bits. mv = 4 * m2, so it always has at least two trailing 0 bits.
-        *vrIsTrailingZeros = true;
-        if (acceptBounds) {
-          // mm = mv - 1 - mmShift, so it has 1 trailing 0 bit iff mmShift == 1.
-          *vmIsTrailingZeros = mmShift == 1;
-        } else {
-          // mp = mv + 2, so it always has at least one trailing 0 bit.
-          --base10->mantissa_high;
-        }
-      } else if (q < 31) { // TODO(ulfjack): Use a tighter bound here.
-        *vrIsTrailingZeros =
-            RyuPowLogUtils::MultipleOfPowerOf2(base2.mantissa_correct, q - 1);
-      }
-    }
-  }
+       if (q != 0 &&
+           (base10->mantissa_high - 1) / 10 <= base10->mantissa_low / 10) {
+         j = static_cast<int32_t>(q) - 1 -
+             (RyuPowLogUtils::Pow5Bits(i + 1) -
+              RyuPowLogUtils::kFloatPow5Bitcount);
+         last_removed_digit = static_cast<uint8_t>(
+             RyuPowLogUtils::MulPow5divPow2(base2.mantissa_correct,
+                                            static_cast<uint32_t>(i + 1), j) %
+             10);
+       }
+       if (q <= 1) {
+         // {vr,vp,vm} is trailing zeros if {mv,mp,mm} has at least q trailing 0
+         // bits. mv = 4 * m2, so it always has at least two trailing 0 bits.
+         *vrIsTrailingZeros = true;
+         if (accept_bounds) {
+           // mm = mv - 1 - mmShift, so it has 1 trailing 0 bit iff mmShift
+           // == 1.
+           *vmIsTrailingZeros = mmShift == 1;
+         } else {
+           // mp = mv + 2, so it always has at least one trailing 0 bit.
+           --base10->mantissa_high;
+         }
+       } else if (q < 31) { // TODO(ulfjack): Use a tighter bound here.
+         *vrIsTrailingZeros =
+             RyuPowLogUtils::MultipleOfPowerOf2(base2.mantissa_correct, q - 1);
+       }
+     }
+   }
 
   /*
    * \brief A varient of extended euclidean GCD algorithm.
@@ -356,7 +359,7 @@ class PowerBaseComputer {
       // relative to this. Loop iterations below (approximately): 0: 13.6%,
       // 1: 70.7%, 2: 14.1%, 3: 1.39%, 4: 0.14%, 5+: 0.01%
       while (base10.mantissa_high / 10 > base10.mantissa_low / 10) {
-        last_removed_digit = (uint8_t)(base10.mantissa_correct % 10);
+        last_removed_digit = static_cast<uint8_t>(base10.mantissa_correct % 10);
         base10.mantissa_correct /= 10;
         base10.mantissa_high /= 10;
         base10.mantissa_low /= 10;
@@ -386,7 +389,7 @@ class PowerBaseComputer {
           1 - IEEE754::kFloatBias - IEEE754::kFloatMantissaBits - 2;
       mantissa_base2 = f.mantissa;
     } else {
-      base2_range.exponent = (int32_t)f.exponent - IEEE754::kFloatBias -
+      base2_range.exponent = static_cast<int32_t>(f.exponent) - IEEE754::kFloatBias -
                              IEEE754::kFloatMantissaBits - 2;
       mantissa_base2 = (1u << IEEE754::kFloatMantissaBits) | f.mantissa;
     }
@@ -422,42 +425,45 @@ namespace {
 constexpr uint32_t Tens(uint32_t n) { return n == 1 ? 10 : (Tens(n - 1) * 10); }
 } // namespace
 
-static inline uint32_t OutputLength(const uint32_t v) {
-  // Function precondition: v is not a 10-digit number.
-  // (f2s: 9 digits are sufficient for round-tripping.)
-  // (d2fixed: We print 9-digit blocks.)
-  static_assert(100000000 == Tens(8), "");
-  assert(v < Tens(9));
-  if (v >= Tens(8)) {
-    return 9;
-  }
-  if (v >= Tens(7)) {
-    return 8;
-  }
-  if (v >= Tens(6)) {
-    return 7;
-  }
-  if (v >= Tens(5)) {
-    return 6;
-  }
-  if (v >= Tens(4)) {
-    return 5;
-  }
-  if (v >= Tens(3)) {
-    return 4;
-  }
-  if (v >= Tens(2)) {
-    return 3;
-  }
-  if (v >= Tens(1)) {
-    return 2;
-  }
-  return 1;
-}
 /*
  * \brief Print the floating point number in base 10.
  */
-struct RyuPrinter {
+class RyuPrinter {
+ private:
+  static inline uint32_t OutputLength(const uint32_t v) {
+    // Function precondition: v is not a 10-digit number.
+    // (f2s: 9 digits are sufficient for round-tripping.)
+    // (d2fixed: We print 9-digit blocks.)
+    static_assert(100000000 == Tens(8), "");
+    assert(v < Tens(9));
+    if (v >= Tens(8)) {
+      return 9;
+    }
+    if (v >= Tens(7)) {
+      return 8;
+    }
+    if (v >= Tens(6)) {
+      return 7;
+    }
+    if (v >= Tens(5)) {
+      return 6;
+    }
+    if (v >= Tens(4)) {
+      return 5;
+    }
+    if (v >= Tens(3)) {
+      return 4;
+    }
+    if (v >= Tens(2)) {
+      return 3;
+    }
+    if (v >= Tens(1)) {
+      return 2;
+    }
+    return 1;
+  }
+
+ public:
   static int32_t PrintBase10Float(UnsignedFloatBase10 v, const bool sign,
                                   char *const result) {
     // Step 5: Print the decimal representation.
@@ -501,7 +507,7 @@ struct RyuPrinter {
       result[index + out_length - i] = kItoaLut[c + 1];
       result[index] = kItoaLut[c];
     } else {
-      result[index] = (char)('0' + output);
+      result[index] = static_cast<char>('0' + output);
     }
 
     // Print decimal point if needed.
@@ -524,7 +530,7 @@ struct RyuPrinter {
       std::memcpy(result + index, kItoaLut + 2 * exp, 2);
       index += 2;
     } else {
-      result[index++] = (char)('0' + exp);
+      result[index++] = static_cast<char>('0' + exp);
     }
 
     return index;
@@ -533,17 +539,17 @@ struct RyuPrinter {
   static int32_t PrintSpecialFloat(const bool sign, UnsignedFloatBase2 f,
                                    char *const result) {
     if (f.mantissa) {
-      std::memcpy(result, "NaN", 3);
+      std::memcpy(result, u8"NaN", 3);
       return 3;
     }
     if (sign) {
       result[0] = '-';
     }
     if (f.exponent) {
-      std::memcpy(result + sign, "Infinity", 8);
+      std::memcpy(result + sign, u8"Infinity", 8);
       return sign + 8;
     }
-    std::memcpy(result + sign, "0E0", 3);
+    std::memcpy(result + sign, u8"0E0", 3);
     return sign + 3;
   }
 };
