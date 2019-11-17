@@ -195,29 +195,29 @@ struct PowerBaseComputer {
 };
 
 inline UnsignedFloatBase10
-ShortestRepresentation(bool vmIsTrailingZeros, bool vrIsTrailingZeros,
+ShortestRepresentation(bool mantissa_low_is_trailing_zeros, bool vrIsTrailingZeros,
                        const bool acceptBounds, int32_t exponent_base10,
                        uint32_t mantissa10_low, uint32_t mantissa10_v,
                        uint32_t mantissa10_high) {
   int32_t removed = 0;
   uint32_t output;
-  uint8_t lastRemovedDigit = 0;
-  if (vmIsTrailingZeros || vrIsTrailingZeros) {
+  uint8_t last_removed_digit = 0;
+  if (mantissa_low_is_trailing_zeros || vrIsTrailingZeros) {
     // General case, which happens rarely (~4.0%).
     while (mantissa10_high / 10 > mantissa10_low / 10) {
-      vmIsTrailingZeros &= mantissa10_low % 10 == 0;
-      vrIsTrailingZeros &= lastRemovedDigit == 0;
-      lastRemovedDigit = (uint8_t)(mantissa10_v % 10);
+      mantissa_low_is_trailing_zeros &= mantissa10_low % 10 == 0;
+      vrIsTrailingZeros &= last_removed_digit == 0;
+      last_removed_digit = (uint8_t)(mantissa10_v % 10);
       mantissa10_v /= 10;
       mantissa10_high /= 10;
       mantissa10_low /= 10;
       ++removed;
     }
 
-    if (vmIsTrailingZeros) {
+    if (mantissa_low_is_trailing_zeros) {
       while (mantissa10_low % 10 == 0) {
-        vrIsTrailingZeros &= lastRemovedDigit == 0;
-        lastRemovedDigit = (uint8_t)(mantissa10_v % 10);
+        vrIsTrailingZeros &= last_removed_digit == 0;
+        last_removed_digit = (uint8_t)(mantissa10_v % 10);
         mantissa10_v /= 10;
         mantissa10_high /= 10;
         mantissa10_low /= 10;
@@ -225,20 +225,20 @@ ShortestRepresentation(bool vmIsTrailingZeros, bool vrIsTrailingZeros,
       }
     }
 
-    if (vrIsTrailingZeros && lastRemovedDigit == 5 && mantissa10_v % 2 == 0) {
+    if (vrIsTrailingZeros && last_removed_digit == 5 && mantissa10_v % 2 == 0) {
       // Round even if the exact number is .....50..0.
-      lastRemovedDigit = 4;
+      last_removed_digit = 4;
     }
     // We need to take vr + 1 if vr is outside bounds or we need to round up.
     output = mantissa10_v + ((mantissa10_v == mantissa10_low &&
-                              (!acceptBounds || !vmIsTrailingZeros)) ||
-                             lastRemovedDigit >= 5);
+                              (!acceptBounds || !mantissa_low_is_trailing_zeros)) ||
+                             last_removed_digit >= 5);
   } else {
     // Specialized for the common case (~96.0%). Percentages below are relative
     // to this. Loop iterations below (approximately): 0: 13.6%, 1: 70.7%,
     // 2: 14.1%, 3: 1.39%, 4: 0.14%, 5+: 0.01%
     while (mantissa10_high / 10 > mantissa10_low / 10) {
-      lastRemovedDigit = (uint8_t)(mantissa10_v % 10);
+      last_removed_digit = (uint8_t)(mantissa10_v % 10);
       mantissa10_v /= 10;
       mantissa10_high /= 10;
       mantissa10_low /= 10;
@@ -247,7 +247,7 @@ ShortestRepresentation(bool vmIsTrailingZeros, bool vrIsTrailingZeros,
 
     // We need to take vr + 1 if vr is outside bounds or we need to round up.
     output = mantissa10_v +
-             (mantissa10_v == mantissa10_low || lastRemovedDigit >= 5);
+             (mantissa10_v == mantissa10_low || last_removed_digit >= 5);
   }
   const int32_t exp = exponent_base10 + removed;
 
@@ -257,15 +257,7 @@ ShortestRepresentation(bool vmIsTrailingZeros, bool vrIsTrailingZeros,
   return fd;
 }
 
-// A floating decimal representing m * 10^e.
-typedef struct floating_decimal_32 {
-  uint32_t mantissa;
-  // Decimal exponent's range is -45 to 38
-  // inclusive, and can fit in a short if needed.
-  int32_t exponent;
-} floating_decimal_32;
-
-inline floating_decimal_32 float2decimal(UnsignedFloatBase2 f) {
+inline UnsignedFloatBase10 float2decimal(UnsignedFloatBase2 f) {
   int32_t exponent_base2;
   uint32_t mantissa_base2;
   if (f.exponent == 0) {
@@ -356,59 +348,9 @@ inline floating_decimal_32 float2decimal(UnsignedFloatBase2 f) {
 
   // Step 4: Find the shortest decimal representation in the interval of valid
   // representations.
-  int32_t removed = 0;
-  uint32_t output;
-  if (vmIsTrailingZeros || vrIsTrailingZeros) {
-    // General case, which happens rarely (~4.0%).
-    while (mantissa10_high / 10 > mantissa10_low / 10) {
-      vmIsTrailingZeros &= mantissa10_low % 10 == 0;
-      vrIsTrailingZeros &= lastRemovedDigit == 0;
-      lastRemovedDigit = (uint8_t)(mantissa10_v % 10);
-      mantissa10_v /= 10;
-      mantissa10_high /= 10;
-      mantissa10_low /= 10;
-      ++removed;
-    }
-
-    if (vmIsTrailingZeros) {
-      while (mantissa10_low % 10 == 0) {
-        vrIsTrailingZeros &= lastRemovedDigit == 0;
-        lastRemovedDigit = (uint8_t)(mantissa10_v % 10);
-        mantissa10_v /= 10;
-        mantissa10_high /= 10;
-        mantissa10_low /= 10;
-        ++removed;
-      }
-    }
-
-    if (vrIsTrailingZeros && lastRemovedDigit == 5 && mantissa10_v % 2 == 0) {
-      // Round even if the exact number is .....50..0.
-      lastRemovedDigit = 4;
-    }
-    // We need to take vr + 1 if vr is outside bounds or we need to round up.
-    output = mantissa10_v + ((mantissa10_v == mantissa10_low && (!acceptBounds || !vmIsTrailingZeros)) ||
-                             lastRemovedDigit >= 5);
-  } else {
-    // Specialized for the common case (~96.0%). Percentages below are relative
-    // to this. Loop iterations below (approximately): 0: 13.6%, 1: 70.7%,
-    // 2: 14.1%, 3: 1.39%, 4: 0.14%, 5+: 0.01%
-    while (mantissa10_high / 10 > mantissa10_low / 10) {
-      lastRemovedDigit = (uint8_t)(mantissa10_v % 10);
-      mantissa10_v /= 10;
-      mantissa10_high /= 10;
-      mantissa10_low /= 10;
-      ++removed;
-    }
-
-    // We need to take vr + 1 if vr is outside bounds or we need to round up.
-    output = mantissa10_v + (mantissa10_v == mantissa10_low || lastRemovedDigit >= 5);
-  }
-  const int32_t exp = exponent_base10 + removed;
-
-  floating_decimal_32 fd;
-  fd.exponent = exp;
-  fd.mantissa = output;
-  return fd;
+  auto out = ShortestRepresentation(vmIsTrailingZeros, vrIsTrailingZeros, acceptBounds,
+                                    exponent_base10, mantissa10_low, mantissa10_v, mantissa10_high);
+  return out;
 }
 
 static inline uint32_t decimalLength9(const uint32_t v) {
@@ -443,7 +385,7 @@ static inline uint32_t decimalLength9(const uint32_t v) {
   return 1;
 }
 
-static inline int to_chars_impl(const floating_decimal_32 v, const bool sign,
+static inline int to_chars_impl(UnsignedFloatBase10 v, const bool sign,
                                 char *const result) {
   // Step 5: Print the decimal representation.
   int index = 0;
@@ -534,7 +476,7 @@ inline int32_t f2s_buffered_n(float f, char * const result) {
     return SpecialStr(result, sign, uf.exponent, uf.mantissa);
   }
 
-  const floating_decimal_32 v = float2decimal(uf);
+  const UnsignedFloatBase10 v = float2decimal(uf);
   return to_chars_impl(v, sign, result);
 }
 
