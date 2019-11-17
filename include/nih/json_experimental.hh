@@ -807,8 +807,8 @@ class Document {
     return msg;
   }
 
-  static Document load(StringRef json_str);
-  std::string dump();
+  static Document Load(StringRef json_str);
+  std::string Dump();
 };
 
 static void print_tree(Span<size_t> tree, size_t beg, size_t end) {

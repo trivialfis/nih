@@ -126,7 +126,7 @@ struct RyuPowLogUtils {
       1654361225106055349u, 2067951531382569187u, 1292469707114105741u,
       1615587133892632177u, 2019483917365790221u};
 
-  static uint32_t Pow5Factor(uint32_t value) {
+  static uint32_t Pow5Factor(uint32_t value) noexcept(true) {
     uint32_t count = 0;
     for (;;) {
       const uint32_t q = value / 5;
@@ -141,12 +141,12 @@ struct RyuPowLogUtils {
   }
 
   // Returns true if value is divisible by 5^p.
-  static bool MultipleOfPowerOf5(const uint32_t value, const uint32_t p) {
+  static bool MultipleOfPowerOf5(const uint32_t value, const uint32_t p) noexcept(true) {
     return Pow5Factor(value) >= p;
   }
 
   // Returns true if value is divisible by 2^p.
-  static bool MultipleOfPowerOf2(const uint32_t value, const uint32_t p) {
+  static bool MultipleOfPowerOf2(const uint32_t value, const uint32_t p) noexcept(true) {
 #ifdef __GNUC__
     return __builtin_ctz(value) >= p;
 #else
@@ -155,7 +155,7 @@ struct RyuPowLogUtils {
   }
 
   // Returns e == 0 ? 1 : ceil(log_2(5^e)).
-  static uint32_t Pow5Bits(const int32_t e) {
+  static uint32_t Pow5Bits(const int32_t e) noexcept(true) {
     return (uint32_t)(((e * 163391164108059ull) >> 46) + 1);
   }
 
@@ -163,7 +163,7 @@ struct RyuPowLogUtils {
    * \brief Multiply 32-bit and 64-bit -> 128 bit, then access the higher bits.
    */
   static uint32_t MulShift(const uint32_t x, const uint64_t y,
-                           const int32_t shift) {
+                           const int32_t shift) noexcept(true) {
     // For 32-bit * 64-bit: x * y, it can be decomposed into:
     //
     //   x * (y_high + y_low) = (x * y_high) + (x * y_low)
@@ -185,7 +185,7 @@ struct RyuPowLogUtils {
    * \brief floor(5^q/2*k) and shift by j
    */
   static uint32_t MulPow5InvDivPow2(const uint32_t m, const uint32_t q,
-                                    const int32_t j) {
+                                    const int32_t j) noexcept(true) {
     return MulShift(m, kFloatPow5InvSplit[q], j);
   }
 
@@ -193,14 +193,14 @@ struct RyuPowLogUtils {
    * \brief floor(2^k/5^q) + 1 and shift by j
    */
   static uint32_t MulPow5divPow2(const uint32_t m, const uint32_t i,
-                                 const int32_t j) {
+                                 const int32_t j) noexcept(true) {
     return MulShift(m, kFloatPow5Split[i], j);
   }
 
   /*
    * \brief floor(e * log_10(2)).
    */
-  static uint32_t log10Pow2(const int32_t e) {
+  static uint32_t log10Pow2(const int32_t e) noexcept(true) {
     // The first value this approximation fails for is 2^1651 which is just
     // greater than 10^297.
     assert(e >= 0);
@@ -210,7 +210,7 @@ struct RyuPowLogUtils {
   }
 
   // Returns floor(e * log_10(5)).
-  static uint32_t Log10Pow5(const int32_t expoent) {
+  static uint32_t Log10Pow5(const int32_t expoent) noexcept(true) {
     // The first value this approximation fails for is 5^2621 which is just
     // greater than 10^1832.
     assert(expoent >= 0);
@@ -224,7 +224,8 @@ class PowerBaseComputer {
  private:
    static void ToDecimalBase(bool accept_bounds, uint32_t mmShift,
                              MantissaInteval base2, MantissaInteval *base10,
-                             bool *vmIsTrailingZeros, bool *vrIsTrailingZeros) {
+                             bool *vmIsTrailingZeros,
+                             bool *vrIsTrailingZeros) noexcept(true) {
      uint8_t last_removed_digit = 0;
      if (base2.exponent >= 0) {
        const uint32_t q = RyuPowLogUtils::log10Pow2(base2.exponent);
@@ -317,7 +318,7 @@ class PowerBaseComputer {
   static UnsignedFloatBase10
   ShortestRepresentation(bool mantissa_low_is_trailing_zeros,
                          bool vrIsTrailingZeros, bool const acceptBounds,
-                         MantissaInteval base10) {
+                         MantissaInteval base10) noexcept(true) {
     int32_t removed {0};
     uint32_t output {0};
     uint8_t last_removed_digit {0};
@@ -380,7 +381,7 @@ class PowerBaseComputer {
   }
 
  public:
-  static UnsignedFloatBase10 Binary2Decimal(UnsignedFloatBase2 const f) {
+  static UnsignedFloatBase10 Binary2Decimal(UnsignedFloatBase2 const f) noexcept(true) {
     MantissaInteval base2_range;
     uint32_t mantissa_base2;
     if (f.exponent == 0) {
@@ -430,7 +431,7 @@ constexpr uint32_t Tens(uint32_t n) { return n == 1 ? 10 : (Tens(n - 1) * 10); }
  */
 class RyuPrinter {
  private:
-  static inline uint32_t OutputLength(const uint32_t v) {
+  static inline uint32_t OutputLength(const uint32_t v) noexcept(true) {
     // Function precondition: v is not a 10-digit number.
     // (f2s: 9 digits are sufficient for round-tripping.)
     // (d2fixed: We print 9-digit blocks.)
@@ -465,7 +466,7 @@ class RyuPrinter {
 
  public:
   static int32_t PrintBase10Float(UnsignedFloatBase10 v, const bool sign,
-                                  char *const result) {
+                                  char *const result) noexcept(true) {
     // Step 5: Print the decimal representation.
     int index = 0;
     if (sign) {
@@ -537,7 +538,7 @@ class RyuPrinter {
   }
 
   static int32_t PrintSpecialFloat(const bool sign, UnsignedFloatBase2 f,
-                                   char *const result) {
+                                   char *const result) noexcept(true) {
     if (f.mantissa) {
       std::memcpy(result, u8"NaN", 3);
       return 3;

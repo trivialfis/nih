@@ -56,8 +56,6 @@ void Value::Accept(JsonWriter &writer) {
     writer.BeginArray();
     for (size_t it = 0; it < this->array_table_.size(); ++it) {
       auto tree = json_tree_.Access();
-      ValueKind kind;
-      size_t offset_in_tree;
       if (array_table_[it] != kElementEnd) {
         auto value = this->GetArrayElem(it);
         value.Accept(writer);
@@ -73,19 +71,14 @@ void Value::Accept(JsonWriter &writer) {
     writer.BeginObject();
     auto tree = json_tree_.Access();
     for (size_t i = 0; i < this->object_table_.size(); ++i) {
-      ObjectElement elem = object_table_[i];
-      // View on the key.
+      ObjectElement const& elem = object_table_[i];
       ConstStringRef key((char *)&(data_stack_.Access()[elem.key_begin]),
                          elem.key_end - elem.key_begin);
       writer.HandleString(key);
 
       writer.KeyValue();
 
-      ValueKind kind;
-      size_t offset_in_tree;
-      std::tie(kind, offset_in_tree) =
-          JsonTypeHandler::GetTypeOffset(tree[elem.value]);
-
+      ValueKind kind = JsonTypeHandler::GetType(tree[elem.value]);
       ValueImplT value{kind, elem.value, json_tree_.Data(),
                        data_stack_.Data()};
       value.Accept(writer);
@@ -99,7 +92,7 @@ void Value::Accept(JsonWriter &writer) {
   }
 }
 
-Document Document::load(StringRef json_str) {
+Document Document::Load(StringRef json_str) {
   Document doc(false);
   doc._tree_storage.reserve(json_str.size() * 2);
   {
@@ -115,7 +108,7 @@ Document Document::load(StringRef json_str) {
   return std::move(doc);
 }
 
-std::string Document::dump() {
+std::string Document::Dump() {
   NIH_ASSERT(err_code_ == jError::kSuccess) << ErrStr();
   if (!value.finalised_) {
     value.EndObject();
