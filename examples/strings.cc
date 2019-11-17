@@ -5,7 +5,7 @@
 
 int main() {
   std::vector<std::string> result;
-  nih::split(result, "hello world", [](char c) { return c == ' '; });
+  result = nih::split("hello world", [](char c) { return c == ' '; });
   // outputs:
   // hello
   // world

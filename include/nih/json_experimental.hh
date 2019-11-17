@@ -20,9 +20,10 @@
 
 #include <cinttypes>
 #include <vector>
+#include <string>
+#include <tuple>
 #include <nih/span.hh>
-
-#include <nih/logging.hh>
+#include <cstring>
 
 namespace nih {
 namespace experimental {
@@ -44,7 +45,7 @@ enum class ValueKind : std::uint8_t {
   kNull = 0x7
 };
 
-std::string KindStr(ValueKind kind) {
+inline std::string KindStr(ValueKind kind) {
   switch (kind) {
     case ValueKind::kTrue:
       return "ture";
@@ -66,10 +67,23 @@ std::string KindStr(ValueKind kind) {
   return "";
 }
 
+template <typename T>
+class LeakedAllocator : public std::allocator<T> {
+ public:
+  LeakedAllocator(std::allocator<T> const &that) {}
+  LeakedAllocator(std::allocator<T>&& that) {}
+  T *allocate(size_t n) {
+    return std::allocator<T>::allocate(n);
+  }
+  void deallocate(T *ptr, size_t n) {
+
+  }
+};
+
 /*! \brief A mutable string_view. */
 template <typename CharT>
 class StringRefImpl {
- public:
+public:
   using pointer = CharT*;
   using iterator = pointer;
   using const_iterator = pointer const;
@@ -229,10 +243,9 @@ class StorageView {
   std::vector<T> *Data() const { return storage_ref_; }
 };
 
-class JsonWriter;
 class Document;
 
-template <typename Container>
+template <typename Container, size_t kElementEnd = std::numeric_limits<size_t>::max()>
 class ValueImpl {
  protected:
   // Using inheritence is not idea as Document would go out of scope before this base
@@ -241,12 +254,16 @@ class ValueImpl {
   using ValueImplT = ValueImpl;
 
   Container* handler_;
+  // A `this` pointer pointing to JSON tree, with type information written in first 3 bits.
+  size_t self_ {0};
   // Storing the type information for this node.
   ValueKind kind_ { ValueKind::kNull };
+  bool is_view_ {false};
+  bool finalised_ {true};
 
  public:
   // A guard for invalid pointer.
-  static size_t constexpr kElementEnd { std::numeric_limits<size_t>::max() };
+  // static size_t constexpr kElementEnd { std::numeric_limits<size_t>::max() };
 
   // This is a node in the singly linked list
   struct ObjectElement {
@@ -267,14 +284,9 @@ class ValueImpl {
   };
 
  protected:
-  // A `this` pointer pointing to JSON tree, with type information written in first 3 bits.
-  size_t self_ {0};
-  bool is_view_ {false};
-  bool finalised_ {true};
-
   void InitializeType(ValueKind kind) {
     NIH_ASSERT_EQ(static_cast<uint8_t>(this->kind_),
-                  static_cast<uint8_t>(ValueKind::kNull)) << "You can not reset a value.";
+                  static_cast<uint8_t>(ValueKind::kNull));
     this->kind_ = kind;
   }
 
@@ -292,7 +304,7 @@ class ValueImpl {
 
  protected:
   // explict working memory for non-trivial types.
-  std::vector<ObjectElement> object_table_;
+  std::vector<ObjectElement, LeakedAllocator<ObjectElement>> object_table_;
   std::vector<size_t> array_table_;
   StringStorage  string_storage;
 
@@ -305,7 +317,7 @@ class ValueImpl {
   // ValueImpl knows how to construct itself from data kind and a pointer to
   // its storage
   ValueImpl(Container *doc, ValueKind kind, size_t self)
-      : kind_{kind}, self_{self}, is_view_{true}, handler_{doc} {
+      : handler_{doc}, self_{self}, kind_{kind}, is_view_{true} {
     switch (kind_) {
     case ValueKind::kInteger: {
       this->kind_ = ValueKind::kInteger;
@@ -362,7 +374,7 @@ class ValueImpl {
       break;
     }
     default: {
-      LOG(FATAL) << "Invalid value type: " << static_cast<uint8_t>(kind_);
+      // LOG(FATAL) << "Invalid value type: " << static_cast<uint8_t>(kind_);
       break;
     }
     }
@@ -391,15 +403,14 @@ class ValueImpl {
 
  public:
    ValueImpl(ValueImpl const &that) // = delete
-       : self_{that.self_}, handler_{that.handler_},
-         object_table_{that.object_table_}, array_table_{that.array_table_},
-         kind_{that.kind_}, finalised_{that.finalised_}, is_view_{
-                                                             that.is_view_} {}
+       : handler_{that.handler_}, self_{that.self_},
+         kind_{that.kind_}, is_view_{that.is_view_}, finalised_{that.finalised_},
+         object_table_{that.object_table_}, array_table_{that.array_table_} {}
    ValueImpl(ValueImpl &&that)
-       : self_{that.self_}, handler_{that.handler_},
+       : handler_{that.handler_}, self_{that.self_}, kind_{that.kind_},
+         is_view_{that.is_view_}, finalised_{that.finalised_},
          object_table_{std::move(that.object_table_)},
-         array_table_{std::move(that.array_table_)}, kind_{that.kind_},
-         finalised_{that.finalised_}, is_view_{that.is_view_} {
+         array_table_{std::move(that.array_table_)}{
      that.finalised_ = true;
    }
 
@@ -558,7 +569,6 @@ class ValueImpl {
   ValueImpl CreateMember(ConstStringRef key) {
     CheckType(ValueKind::kObject);
     StorageView<size_t> tree_storage = handler_->Tree();
-    size_t const current_tree_pointer = tree_storage.Top();
     // allocate space for object element.
     tree_storage.Expand(sizeof(ObjectElement) / sizeof(size_t) + 1);
     auto tree = tree_storage.Access();
@@ -617,9 +627,8 @@ class ValueImpl {
     tree[current_tree_pointer] = array_table_.size();
     current_tree_pointer += 1;
 
-    std::copy(array_table_.cbegin(), array_table_.cend(),
-              tree.begin() + current_tree_pointer);
-
+    std::memcpy(tree.data() + current_tree_pointer,
+                array_table_.data(), array_table_.size() * sizeof(size_t));
     tree[self_] = JsonTypeHandler::MakeTypedOffset(
         table_begin, ValueKind::kArray);
     finalised_ = true;
@@ -675,7 +684,72 @@ class ValueImpl {
     return this->kind_;
   }
 
-  void Accept(JsonWriter& writer);
+  template <typename Writer> void Accept(Writer &writer) {
+    // Here this object is assumed to be already initialized.
+    switch (this->get_type()) {
+    case ValueKind::kFalse: {
+      writer.HandleFalse();
+      break;
+    }
+    case ValueKind::kTrue: {
+      writer.HandleTrue();
+      break;
+    }
+    case ValueKind::kNull: {
+      writer.HandleNull();
+      break;
+    }
+    case ValueKind::kInteger: {
+      writer.HandleInteger(this->GetInt());
+      break;
+    }
+    case ValueKind::kNumber: {
+      writer.HandleFloat(this->GetFloat());
+      break;
+    }
+    case ValueKind::kString: {
+      auto str = this->GetString();
+      writer.HandleString(str);
+      break;
+    }
+    case ValueKind::kArray: {
+      writer.BeginArray();
+      for (size_t it = 0; it < this->array_table_.size(); ++it) {
+        if (array_table_[it] != kElementEnd) {
+          auto value = this->GetArrayElem(it);
+          value.Accept(writer);
+        }
+        if (it != this->array_table_.size() - 1) {
+          writer.Comma();
+        }
+      }
+      writer.EndArray();
+      break;
+    }
+    case ValueKind::kObject: {
+      writer.BeginObject();
+      auto tree = handler_->Tree().Access();
+      auto data = handler_->Data().Access();
+      for (size_t i = 0; i < this->object_table_.size(); ++i) {
+        ObjectElement const &elem = object_table_[i];
+        ConstStringRef key((char *)&(data[elem.key_begin]),
+                           elem.key_end - elem.key_begin);
+        writer.HandleString(key);
+
+        writer.KeyValue();
+
+        ValueKind kind = JsonTypeHandler::GetType(tree[elem.value]);
+        ValueImpl value{handler_, kind, elem.value};
+        value.Accept(writer);
+        if (i != this->object_table_.size() - 1) {
+          writer.Comma();
+        }
+      }
+      writer.EndObject();
+      break;
+    }
+    }
+  }
 };
 
 enum class jError : std::uint8_t {
@@ -729,11 +803,11 @@ class Document {
   }
   Document(Document const& that) = delete;
   Document(Document&& that) :
+      err_code_{that.err_code_},
+      last_character{that.last_character},
       _tree_storage{std::move(that._tree_storage)},
       _data_storage{std::move(that._data_storage)},
-      value{ValueImpl<Document>{this}},
-      err_code_{that.err_code_},
-      last_character{that.last_character} {
+      value{ValueImpl<Document>{this}} {
         that.value.finalised_ = {true};
         value.object_table_ = std::move(that.value.object_table_);
         value.array_table_ = std::move(that.value.array_table_);
@@ -799,7 +873,7 @@ class Document {
         msg = "Unknown construct.";
         break;
       default:
-        LOG(FATAL) << "Unknown error code";
+        // LOG(FATAL) << "Unknown error code";
         return "Unknown error code";
     }
     msg += " at character:" + std::to_string(last_character);
@@ -813,5 +887,44 @@ class Document {
 using Json = ValueImpl<Document>;
 }  // namespace experimental
 }  // namespace nih
+
+#include "json_recursive_reader.hh"
+#include "json_writer_experimental.hh"
+
+namespace nih {
+namespace experimental {
+inline Document Document::Load(StringRef json_str) {
+  Document doc(false);
+  doc._tree_storage.reserve(json_str.size() * 2);
+  {
+    // FIXME(trivialfis): Don't copy
+    doc._data_storage.reserve(json_str.size() * 2);
+  }
+
+  JsonRecursiveReader reader(json_str, &(doc.value));
+
+  std::tie(doc.err_code_, doc.last_character) = reader.Parse();
+  NIH_ASSERT(doc.value.IsObject());
+
+  return doc;
+}
+
+inline std::string Document::Dump() {
+  NIH_ASSERT(err_code_ == jError::kSuccess);
+  if (!value.finalised_) {
+    value.EndObject();
+  }
+  NIH_ASSERT(value.finalised_);
+  std::string result;
+  JsonWriter writer;
+
+  this->value.Accept(writer);
+  writer.TakeResult(&result);
+
+  return result;
+}
+
+}
+}
 
 #endif  // _NIH_JSON_EXPERIMENTAL_HH_
