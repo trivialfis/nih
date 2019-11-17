@@ -1,19 +1,31 @@
-// Copyright 2018 Ulf Adams
-//
-// The contents of this file may be used under the terms of the Apache License,
-// Version 2.0.
-//
-//    (See accompanying file LICENSE-Apache or copy at
-//     http://www.apache.org/licenses/LICENSE-2.0)
-//
-// Alternatively, the contents of this file may be used under the terms of
-// the Boost Software License, Version 1.0.
-//    (See accompanying file LICENSE-Boost or copy at
-//     https://www.boost.org/LICENSE_1_0.txt)
-//
-// Unless required by applicable law or agreed to in writing, this software
-// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.
+/*
+ * \brief An implemenation of Ryu algorithm:
+ *
+ * https://dl.acm.org/citation.cfm?id=3192369
+ *
+ * The code is adopted from original (half) c implementation:
+ * https://github.com/ulfjack/ryu.git with some more comments and tidying.  License is
+ * attached below.
+ *
+ * Copyright 2018 Ulf Adams
+ *
+ * The contents of this file may be used under the terms of the Apache License,
+ * Version 2.0.
+ *
+ *    (See accompanying file LICENSE-Apache or copy at
+ *     http: *www.apache.org/licenses/LICENSE-2.0)
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * the Boost Software License, Version 1.0.
+ *    (See accompanying file LICENSE-Boost or copy at
+ *     https://www.boost.org/LICENSE_1_0.txt)
+ *
+ * Unless required by applicable law or agreed to in writing, this software
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.
+
+ */
+
 #ifndef RYU_HH_
 #define RYU_HH_
 
@@ -151,7 +163,10 @@ struct RyuPowLogUtils {
   static uint32_t MulShift(const uint32_t x, const uint64_t y,
                            const int32_t shift) {
     // For 32-bit * 64-bit: x * y, it can be decomposed into:
-    // x * (y_high + y_low) = (x * y_high) + (x * y_low)
+    //
+    //   x * (y_high + y_low) = (x * y_high) + (x * y_low)
+    //
+    // For more general case 64-bit * 64-bit, see https://stackoverflow.com/a/1541458
     const uint32_t y_low = (uint32_t)(y);
     const uint32_t y_high = (uint32_t)(y >> 32);
 
@@ -192,21 +207,23 @@ struct RyuPowLogUtils {
   }
 
   // Returns floor(e * log_10(5)).
-  static uint32_t Log10Pow5(const int32_t e) {
+  static uint32_t Log10Pow5(const int32_t expoent) {
     // The first value this approximation fails for is 5^2621 which is just
     // greater than 10^1832.
-    assert(e >= 0);
-    assert(e <= 1 << 15);
-    return (uint32_t)((((uint64_t)e) * 196742565691928ull) >> 48);
+    assert(expoent >= 0);
+    assert(expoent <= 1 << 15);
+    return static_cast<uint32_t>(
+        ((static_cast<uint64_t>(expoent)) * 196742565691928ull) >> 48);
   }
 };
 
-struct PowerBaseComputer {
+class PowerBaseComputer {
+ private:
   static void ToDecimalBase(bool acceptBounds, uint32_t mmShift,
                             MantissaInteval base2,
                             MantissaInteval* base10,
                             bool *vmIsTrailingZeros, bool *vrIsTrailingZeros) {
-    uint8_t lastRemovedDigit = 0;
+    uint8_t last_removed_digit = 0;
     if (base2.exponent >= 0) {
       const uint32_t q = RyuPowLogUtils::log10Pow2(base2.exponent);
       base10->exponent = (int32_t)q;
@@ -227,10 +244,11 @@ struct PowerBaseComputer {
         // even on 64-bit machines.
         const int32_t l = RyuPowLogUtils::kFloatPow5InvBitcount +
                           RyuPowLogUtils::Pow5Bits((int32_t)(q - 1)) - 1;
-        lastRemovedDigit = (uint8_t)(
-            RyuPowLogUtils::MulPow5InvDivPow2(
-                base2.mantissa_correct, q - 1, -base2.exponent + (int32_t)q - 1 + l) %
-            10);
+        last_removed_digit =
+            static_cast<uint8_t>(RyuPowLogUtils::MulPow5InvDivPow2(
+                                     base2.mantissa_correct, q - 1,
+                                     -base2.exponent + (int32_t)q - 1 + l) %
+                                 10);
       }
       if (q <= 9) {
         // The largest power of 5 that fits in 24 bits is 5^10, but q <= 9 seems
@@ -265,7 +283,7 @@ struct PowerBaseComputer {
         j = (int32_t)q - 1 -
             (RyuPowLogUtils::Pow5Bits(i + 1) -
              RyuPowLogUtils::kFloatPow5Bitcount);
-        lastRemovedDigit =
+        last_removed_digit =
             (uint8_t)(RyuPowLogUtils::MulPow5divPow2(base2.mantissa_correct,
                                                         (uint32_t)(i + 1), j) %
                       10);
@@ -356,6 +374,7 @@ struct PowerBaseComputer {
     return fd;
   }
 
+ public:
   static UnsignedFloatBase10 Binary2Decimal(UnsignedFloatBase2 f) {
     // int32_t exponent_base2;
     MantissaInteval base2_range;
@@ -375,8 +394,6 @@ struct PowerBaseComputer {
 
     // Step 2: Determine the interval of valid decimal representations.
     base2_range.mantissa_correct = 4 * mantissa_base2;
-    // const uint32_t mantissa_v = 4 * mantissa_base2;
-    // const uint32_t mantissa_high = 4 * mantissa_base2 + 2;
     base2_range.mantissa_high = 4 * mantissa_base2 + 2;
     // Implicit bool -> int conversion. True is 1, false is 0.
     const uint32_t mmShift = f.mantissa != 0 || f.exponent <= 1;
@@ -384,9 +401,7 @@ struct PowerBaseComputer {
     // const uint32_t mantissa_low = 4 * mantissa_base2 - 1 - mmShift;
 
     // Step 3: Convert to a decimal power base using 64-bit arithmetic.
-    // uint32_t mantissa10_v, mantissa10_high, mantissa10_low;
     MantissaInteval base10_range;
-    // int32_t exponent_base10;
     bool vmIsTrailingZeros = false;
     bool vrIsTrailingZeros = false;
     uint8_t lastRemovedDigit = 0;
@@ -438,93 +453,99 @@ static inline uint32_t OutputLength(const uint32_t v) {
   }
   return 1;
 }
+/*
+ * \brief Print the floating point number in base 10.
+ */
+struct RyuPrinter {
+  static int32_t PrintBase10Float(UnsignedFloatBase10 v, const bool sign,
+                                  char *const result) {
+    // Step 5: Print the decimal representation.
+    int index = 0;
+    if (sign) {
+      result[index++] = '-';
+    }
 
-inline int PrintBase10Float(UnsignedFloatBase10 v, const bool sign,
-                            char *const result) {
-  // Step 5: Print the decimal representation.
-  int index = 0;
-  if (sign) {
-    result[index++] = '-';
+    uint32_t output = v.mantissa;
+    const uint32_t out_length = OutputLength(output);
+
+    // Print the decimal digits.
+    // The following code is equivalent to:
+    // for (uint32_t i = 0; i < olength - 1; ++i) {
+    //   const uint32_t c = output % 10; output /= 10;
+    //   result[index + olength - i] = (char) ('0' + c);
+    // }
+    // result[index] = '0' + output % 10;
+    uint32_t i = 0;
+    while (output >= Tens(4)) {
+      const uint32_t c = output % Tens(4);
+      output /= Tens(4);
+      const uint32_t c0 = (c % 100) << 1;
+      const uint32_t c1 = (c / 100) << 1;
+      // This is used to speed up decimal digit generation by copying
+      // pairs of digits into the final output.
+      std::memcpy(result + index + out_length - i - 1, kItoaLut + c0, 2);
+      std::memcpy(result + index + out_length - i - 3, kItoaLut + c1, 2);
+      i += 4;
+    }
+    if (output >= 100) {
+      const uint32_t c = (output % 100) << 1;
+      output /= 100;
+      std::memcpy(result + index + out_length - i - 1, kItoaLut + c, 2);
+      i += 2;
+    }
+    if (output >= 10) {
+      const uint32_t c = output << 1;
+      // We can't use std::memcpy here: the decimal dot goes between these two
+      // digits.
+      result[index + out_length - i] = kItoaLut[c + 1];
+      result[index] = kItoaLut[c];
+    } else {
+      result[index] = (char)('0' + output);
+    }
+
+    // Print decimal point if needed.
+    if (out_length > 1) {
+      result[index + 1] = '.';
+      index += out_length + 1;
+    } else {
+      ++index;
+    }
+
+    // Print the exponent.
+    result[index++] = 'E';
+    int32_t exp = v.exponent + (int32_t)out_length - 1;
+    if (exp < 0) {
+      result[index++] = '-';
+      exp = -exp;
+    }
+
+    if (exp >= 10) {
+      std::memcpy(result + index, kItoaLut + 2 * exp, 2);
+      index += 2;
+    } else {
+      result[index++] = (char)('0' + exp);
+    }
+
+    return index;
   }
 
-  uint32_t output = v.mantissa;
-  const uint32_t out_length = OutputLength(output);
-
-  // Print the decimal digits.
-  // The following code is equivalent to:
-  // for (uint32_t i = 0; i < olength - 1; ++i) {
-  //   const uint32_t c = output % 10; output /= 10;
-  //   result[index + olength - i] = (char) ('0' + c);
-  // }
-  // result[index] = '0' + output % 10;
-  uint32_t i = 0;
-  while (output >= Tens(4)) {
-    const uint32_t c = output % Tens(4);
-    output /= Tens(4);
-    const uint32_t c0 = (c % 100) << 1;
-    const uint32_t c1 = (c / 100) << 1;
-    // This is used to speed up decimal digit generation by copying
-    // pairs of digits into the final output.
-    std::memcpy(result + index + out_length - i - 1, kItoaLut + c0, 2);
-    std::memcpy(result + index + out_length - i - 3, kItoaLut + c1, 2);
-    i += 4;
+  static int32_t PrintSpecialFloat(const bool sign, UnsignedFloatBase2 f,
+                                   char *const result) {
+    if (f.mantissa) {
+      std::memcpy(result, "NaN", 3);
+      return 3;
+    }
+    if (sign) {
+      result[0] = '-';
+    }
+    if (f.exponent) {
+      std::memcpy(result + sign, "Infinity", 8);
+      return sign + 8;
+    }
+    std::memcpy(result + sign, "0E0", 3);
+    return sign + 3;
   }
-  if (output >= 100) {
-    const uint32_t c = (output % 100) << 1;
-    output /= 100;
-    std::memcpy(result + index + out_length - i - 1, kItoaLut + c, 2);
-    i += 2;
-  }
-  if (output >= 10) {
-    const uint32_t c = output << 1;
-    // We can't use std::memcpy here: the decimal dot goes between these two digits.
-    result[index + out_length - i] = kItoaLut[c + 1];
-    result[index] = kItoaLut[c];
-  } else {
-    result[index] = (char)('0' + output);
-  }
-
-  // Print decimal point if needed.
-  if (out_length > 1) {
-    result[index + 1] = '.';
-    index += out_length + 1;
-  } else {
-    ++index;
-  }
-
-  // Print the exponent.
-  result[index++] = 'E';
-  int32_t exp = v.exponent + (int32_t)out_length - 1;
-  if (exp < 0) {
-    result[index++] = '-';
-    exp = -exp;
-  }
-
-  if (exp >= 10) {
-    std::memcpy(result + index, kItoaLut + 2 * exp, 2);
-    index += 2;
-  } else {
-    result[index++] = (char)('0' + exp);
-  }
-
-  return index;
-}
-
-inline int SpecialStr(const bool sign, UnsignedFloatBase2 f, char *const result) {
-  if (f.mantissa) {
-    std::memcpy(result, "NaN", 3);
-    return 3;
-  }
-  if (sign) {
-    result[0] = '-';
-  }
-  if (f.exponent) {
-    std::memcpy(result + sign, "Infinity", 8);
-    return sign + 8;
-  }
-  std::memcpy(result + sign, "0E0", 3);
-  return sign + 3;
-}
+};
 
 inline int32_t f2s_buffered_n(float f, char * const result) {
   // Step 1: Decode the floating-point number, and unify normalized and
@@ -535,11 +556,12 @@ inline int32_t f2s_buffered_n(float f, char * const result) {
 
   // Case distinction; exit early for the easy cases.
   if (uf.Infinite() || uf.Zero()) {
-    return SpecialStr(sign, uf, result);
+    return RyuPrinter::PrintSpecialFloat(sign, uf, result);
   }
 
   const UnsignedFloatBase10 v = PowerBaseComputer::Binary2Decimal(uf);
-  return PrintBase10Float(v, sign, result);
+  const auto index = RyuPrinter::PrintBase10Float(v, sign, result);
+  return index;
 }
 
 } // namespace nih
