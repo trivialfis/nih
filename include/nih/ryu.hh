@@ -39,7 +39,6 @@
 
 namespace nih {
 
-
 struct UnsignedFloatBase2;
 
 struct UnsignedFloatBase10 {
@@ -142,14 +141,17 @@ struct RyuPowLogUtils {
   }
 
   // Returns true if value is divisible by 5^p.
-  static bool multipleOfPowerOf5(const uint32_t value, const uint32_t p) {
+  static bool MultipleOfPowerOf5(const uint32_t value, const uint32_t p) {
     return Pow5Factor(value) >= p;
   }
 
   // Returns true if value is divisible by 2^p.
-  static bool multipleOfPowerOf2(const uint32_t value, const uint32_t p) {
+  static bool MultipleOfPowerOf2(const uint32_t value, const uint32_t p) {
+#ifdef __GNUC__
     return __builtin_ctz(value) >= p;
-    // return (value & ((1u << p) - 1)) == 0;
+#else
+    return (value & ((1u << p) - 1)) == 0;
+#endif  //  __GNUC__
   }
 
   // Returns e == 0 ? 1 : ceil(log_2(5^e)).
@@ -256,13 +258,13 @@ class PowerBaseComputer {
         // 5, if any.
         if (base2.mantissa_correct % 5 == 0) {
           *vrIsTrailingZeros =
-              RyuPowLogUtils::multipleOfPowerOf5(base2.mantissa_correct, q);
+              RyuPowLogUtils::MultipleOfPowerOf5(base2.mantissa_correct, q);
         } else if (acceptBounds) {
           *vmIsTrailingZeros =
-              RyuPowLogUtils::multipleOfPowerOf5(base2.mantissa_low, q);
+              RyuPowLogUtils::MultipleOfPowerOf5(base2.mantissa_low, q);
         } else {
           base10->mantissa_high -=
-              RyuPowLogUtils::multipleOfPowerOf5(base2.mantissa_high, q);
+              RyuPowLogUtils::MultipleOfPowerOf5(base2.mantissa_high, q);
         }
       }
     } else {
@@ -301,7 +303,7 @@ class PowerBaseComputer {
         }
       } else if (q < 31) { // TODO(ulfjack): Use a tighter bound here.
         *vrIsTrailingZeros =
-            RyuPowLogUtils::multipleOfPowerOf2(base2.mantissa_correct, q - 1);
+            RyuPowLogUtils::MultipleOfPowerOf2(base2.mantissa_correct, q - 1);
       }
     }
   }
@@ -311,17 +313,17 @@ class PowerBaseComputer {
    */
   static UnsignedFloatBase10
   ShortestRepresentation(bool mantissa_low_is_trailing_zeros,
-                         bool vrIsTrailingZeros, const bool acceptBounds,
+                         bool vrIsTrailingZeros, bool const acceptBounds,
                          MantissaInteval base10) {
-    int32_t removed = 0;
-    uint32_t output;
-    uint8_t last_removed_digit = 0;
+    int32_t removed {0};
+    uint32_t output {0};
+    uint8_t last_removed_digit {0};
     if (mantissa_low_is_trailing_zeros || vrIsTrailingZeros) {
       // General case, which happens rarely (~4.0%).
       while (base10.mantissa_high / 10 > base10.mantissa_low / 10) {
         mantissa_low_is_trailing_zeros &= base10.mantissa_low % 10 == 0;
         vrIsTrailingZeros &= last_removed_digit == 0;
-        last_removed_digit = (uint8_t)(base10.mantissa_correct % 10);
+        last_removed_digit = static_cast<uint8_t>(base10.mantissa_correct % 10);
         base10.mantissa_correct /= 10;
         base10.mantissa_high /= 10;
         base10.mantissa_low /= 10;
@@ -331,7 +333,7 @@ class PowerBaseComputer {
       if (mantissa_low_is_trailing_zeros) {
         while (base10.mantissa_low % 10 == 0) {
           vrIsTrailingZeros &= last_removed_digit == 0;
-          last_removed_digit = (uint8_t)(base10.mantissa_correct % 10);
+          last_removed_digit = static_cast<uint8_t>(base10.mantissa_correct % 10);
           base10.mantissa_correct /= 10;
           base10.mantissa_high /= 10;
           base10.mantissa_low /= 10;
@@ -375,8 +377,7 @@ class PowerBaseComputer {
   }
 
  public:
-  static UnsignedFloatBase10 Binary2Decimal(UnsignedFloatBase2 f) {
-    // int32_t exponent_base2;
+  static UnsignedFloatBase10 Binary2Decimal(UnsignedFloatBase2 const f) {
     MantissaInteval base2_range;
     uint32_t mantissa_base2;
     if (f.exponent == 0) {
@@ -396,22 +397,22 @@ class PowerBaseComputer {
     base2_range.mantissa_correct = 4 * mantissa_base2;
     base2_range.mantissa_high = 4 * mantissa_base2 + 2;
     // Implicit bool -> int conversion. True is 1, false is 0.
-    const uint32_t mmShift = f.mantissa != 0 || f.exponent <= 1;
-    base2_range.mantissa_low = 4 * mantissa_base2 - 1 - mmShift;
-    // const uint32_t mantissa_low = 4 * mantissa_base2 - 1 - mmShift;
+    const uint32_t mantissa_low_shift = f.mantissa != 0 || f.exponent <= 1;
+    base2_range.mantissa_low = 4 * mantissa_base2 - 1 - mantissa_low_shift;
 
     // Step 3: Convert to a decimal power base using 64-bit arithmetic.
     MantissaInteval base10_range;
-    bool vmIsTrailingZeros = false;
-    bool vrIsTrailingZeros = false;
-    uint8_t lastRemovedDigit = 0;
-    PowerBaseComputer::ToDecimalBase(acceptBounds, mmShift, base2_range,
-                                     &base10_range, &vmIsTrailingZeros,
-                                     &vrIsTrailingZeros);
+    bool mantissa_low_is_trailing_zeros = false;
+    bool mantissa_out_is_trailing_zeros = false;
+    PowerBaseComputer::ToDecimalBase(acceptBounds, mantissa_low_shift, base2_range,
+                                     &base10_range,
+                                     &mantissa_low_is_trailing_zeros,
+                                     &mantissa_out_is_trailing_zeros);
 
     // Step 4: Find the shortest decimal representation in the interval of valid
     // representations.
-    auto out = ShortestRepresentation(vmIsTrailingZeros, vrIsTrailingZeros,
+    auto out = ShortestRepresentation(mantissa_low_is_trailing_zeros,
+                                      mantissa_out_is_trailing_zeros,
                                       acceptBounds, base10_range);
     return out;
   }
