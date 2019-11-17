@@ -81,7 +81,7 @@ void ValueImpl<Container>::Accept(JsonWriter &writer) {
       writer.KeyValue();
 
       ValueKind kind = JsonTypeHandler::GetType(tree[elem.value]);
-      Json value{kind, elem.value, handler_};
+      Json value{handler_, kind, elem.value};
       value.Accept(writer);
       if (i != this->object_table_.size() - 1) {
         writer.Comma();
