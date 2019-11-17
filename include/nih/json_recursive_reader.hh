@@ -58,7 +58,7 @@ inline double Strtod(double significand, int exp, char *beg, char *end) {
 class JsonRecursiveReader {
   using Cursor = StringRef::iterator;
 
-  ValueImpl* handler_;
+  Json* handler_;
   StringRef input_;
   Cursor cursor_;
   jError errno_{jError::kSuccess};
@@ -79,14 +79,14 @@ class JsonRecursiveReader {
     }
   }
 
-  void HandleNull(ValueImpl* number) { number->SetNull(); }
-  void HandleTrue(ValueImpl* t) { t->SetTrue(); }
-  void HandleFalse(ValueImpl* f) { f->SetFalse(); }
+  void HandleNull(Json* number) { number->SetNull(); }
+  void HandleTrue(Json* t) { t->SetTrue(); }
+  void HandleFalse(Json* f) { f->SetFalse(); }
 
   /*\brief Guess whether parsed value is floating point or integer.  For value
    * produced by nih json this should always be correct as ryu produces `E` in
    * all floating points. */
-  void HandleNumber(ValueImpl* number) {
+  void HandleNumber(Json* number) {
     Cursor const beg = cursor_; // keep track of current pointer
 
     bool negative = false;
@@ -298,7 +298,7 @@ class JsonRecursiveReader {
     return c == o;
   }
 
-  void HandleArray(ValueImpl* value) {
+  void HandleArray(Json* value) {
     if (NIH_EXPECT(!this->Skip(&cursor_, '['), false)) {
       errno_ = jError::kInvalidArray;
       return;
@@ -336,7 +336,7 @@ class JsonRecursiveReader {
     size_t offset = 1;
   }
 
-  void HandleObject(ValueImpl* object) {
+  void HandleObject(Json* object) {
     this->Skip(&cursor_, '{');
     cursor_ = SkipWhitespaces(cursor_);
     char ch = *cursor_;
@@ -348,7 +348,7 @@ class JsonRecursiveReader {
     }
 
     while (true) {
-      ValueImpl::ObjectElement elem;
+      Json::ObjectElement elem;
 
       cursor_ = SkipWhitespaces(cursor_);
       ch = *cursor_;
@@ -381,7 +381,7 @@ class JsonRecursiveReader {
   }
 
  public:
-   void ParseImpl(ValueImpl* value) {
+   void ParseImpl(Json* value) {
      cursor_ = this->SkipWhitespaces(cursor_);
      if (cursor_ == input_.data() + input_.size()) {
        return;
@@ -440,7 +440,7 @@ class JsonRecursiveReader {
      return {errno_, std::distance(input_.cbegin(), cursor_)};
    }
 
-   JsonRecursiveReader(StringRef str, ValueImpl* handler)
+   JsonRecursiveReader(StringRef str, Json* handler)
        : input_{str}, cursor_{input_.begin()}, handler_{handler} {
    }
 };

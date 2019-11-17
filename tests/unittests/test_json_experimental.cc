@@ -66,7 +66,7 @@ TEST(Json_Experimental, ObjectGeneral) {
 
   auto it = doc.GetObject().FindMemberByKey("0-0");
   ASSERT_NE(it, doc.GetObject().cend());
-  ValueImpl v = *it;
+  Json v = *it;
   ASSERT_TRUE(v.IsObject());
 }
 
@@ -106,7 +106,7 @@ TEST(Json_Experimental, Array) {
     auto a = value.GetArrayElem(0);
     a.SetFloat(3.14159);
 
-    ValueImpl b = value.GetArrayElem(15);
+    Json b = value.GetArrayElem(15);
     b.SetInteger(4);
 
     value.EndArray();

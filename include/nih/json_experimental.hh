@@ -212,26 +212,34 @@ struct JsonTypeHandler {
 template <typename T>
 class StorageView {
   std::vector<T> *storage_ref_;
+  void Resize(size_t n) { this->storage_ref_->resize(n); }
 
-public:
+ public:
   StorageView(std::vector<T> *storage_ref) : storage_ref_{storage_ref} {}
   size_t Top() const { return storage_ref_->size(); }
   Span<T> Access() const { return Span<T>{*storage_ref_}; }
-  void Resize(size_t n) { this->storage_ref_->resize(n); }
   void Expand(size_t n) { this->Resize(storage_ref_->size() + n); }
+
+  template <typename V>
+  void Push(V* value, size_t n) {
+    size_t old = storage_ref_->size();
+    this->Expand(sizeof(V) / sizeof(T) * n);
+    std::memcpy(storage_ref_->data() + old, value, n * sizeof(V));
+  }
   std::vector<T> *Data() const { return storage_ref_; }
 };
 
 class JsonWriter;
 class Document;
 
+template <typename Container>
 class ValueImpl {
  protected:
   // Using inheritence is not idea as Document would go out of scope before this base
   // class, while memory buffer is held in Document;
   friend Document;
   using ValueImplT = ValueImpl;
-
+  Container* handler;
   // raw storage to JSON tree.
   StorageView<size_t> json_tree_;
   // raw storage to actual data.
@@ -389,9 +397,7 @@ class ValueImpl {
     auto const current_tree_pointer = json_tree_.Top();
     tree[this->_tree_begin] =
         JsonTypeHandler::MakeTypedOffset(current_data_pointer, kind);
-    data_stack_.Expand(sizeof(value));
-    auto data = data_stack_.Access();
-    std::memcpy(data.data() + current_data_pointer, (void*)&value, sizeof(value));
+    data_stack_.Push(&value, 1);
   }
 
   template <typename T>
@@ -700,7 +706,6 @@ enum class jError : std::uint8_t {
   kUnknownConstruct
 };
 
-using Value = ValueImpl;
 /*!
  * \brief JSON document root.  Also is a container for all other derived objects, so it
  * must be the last one to go out of scope when using the JSON tree.  For now only using
@@ -712,10 +717,21 @@ class Document {
 
   std::vector<size_t> _tree_storage;
   std::vector<std::string::value_type> _data_storage;
-  ValueImpl value;
+
+  using Value = ValueImpl<Document>;
+  Value value;
 
   int32_t n_alive_values_;
   int32_t n_alive_structs_;
+
+  size_t TreeTop() const { return _tree_storage.size(); }
+  Span<size_t> Tree() {
+    return Span<size_t> {_tree_storage};
+  }
+  size_t DataTop() const { return _data_storage.size(); }
+  Span<char> Data() {
+    return Span<char> {_data_storage};
+  }
 
  private:
   Document(bool) : value(&_tree_storage, &_data_storage, 0) {
@@ -732,7 +748,7 @@ class Document {
   Document(Document&& that) :
       _tree_storage{std::move(that._tree_storage)},
       _data_storage{std::move(that._data_storage)},
-      value{ValueImpl{&_tree_storage, &_data_storage, 0}},
+      value{ValueImpl<Document>{&_tree_storage, &_data_storage, 0}},
       err_code_{that.err_code_},
       last_character{that.last_character} {
         that.value.finalised_ = {true};
@@ -748,14 +764,14 @@ class Document {
     }
   };
 
-  ValueImpl CreateMember(ConstStringRef key) {
+  Value CreateMember(ConstStringRef key) {
     return this->value.CreateMember(key);
   }
 
-  ValueImpl& GetObject() {
+  Value& GetObject() {
     return value;
   }
-  ValueImpl const &GetObject() const {
+  Value const &GetObject() const {
     return value;
   }
 
@@ -811,13 +827,7 @@ class Document {
   std::string Dump();
 };
 
-static void print_tree(Span<size_t> tree, size_t beg, size_t end) {
-  for (size_t i = beg; i < end; ++i) {
-    std::cout << tree[i] << ' ';
-  }
-  std::cout << std::endl;
-}
-
+using Json = ValueImpl<Document>;
 }  // namespace experimental
 }  // namespace nih
 

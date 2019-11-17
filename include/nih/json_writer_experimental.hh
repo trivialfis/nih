@@ -119,7 +119,7 @@ class JsonWriter {
     std::memcpy(buffer_.data() + ori_size, i2s_buffer_, digits);
   }
 
-  std::vector<std::string::value_type> const& write(Value const& value) {
+  std::vector<std::string::value_type> const& write(ValueImpl<Document> const& value) {
     return buffer_;
   }
 

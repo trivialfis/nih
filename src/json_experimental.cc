@@ -22,9 +22,11 @@
 namespace nih {
 namespace experimental {
 
-size_t constexpr ValueImpl::kElementEnd;
+template <typename Container>
+size_t constexpr ValueImpl<Container>::kElementEnd;
 
-void Value::Accept(JsonWriter &writer) {
+template <typename Container>
+void ValueImpl<Container>::Accept(JsonWriter &writer) {
   // Here this object is assumed to be already initialized.
   switch (this->get_type()) {
   case ValueKind::kFalse: {
@@ -79,7 +81,7 @@ void Value::Accept(JsonWriter &writer) {
       writer.KeyValue();
 
       ValueKind kind = JsonTypeHandler::GetType(tree[elem.value]);
-      ValueImplT value{kind, elem.value, json_tree_.Data(),
+      Json value{kind, elem.value, json_tree_.Data(),
                        data_stack_.Data()};
       value.Accept(writer);
       if (i != this->object_table_.size() - 1) {
@@ -123,5 +125,6 @@ std::string Document::Dump() {
   return result;
 }
 
+template class ValueImpl<Document>;
 }  // namespace experimental
 }  // namespace nih
