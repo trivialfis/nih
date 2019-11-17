@@ -57,7 +57,6 @@ void ValueImpl<Container>::Accept(JsonWriter &writer) {
   case ValueKind::kArray: {
     writer.BeginArray();
     for (size_t it = 0; it < this->array_table_.size(); ++it) {
-      auto tree = json_tree_.Access();
       if (array_table_[it] != kElementEnd) {
         auto value = this->GetArrayElem(it);
         value.Accept(writer);
@@ -71,18 +70,18 @@ void ValueImpl<Container>::Accept(JsonWriter &writer) {
   }
   case ValueKind::kObject: {
     writer.BeginObject();
-    auto tree = json_tree_.Access();
+    auto tree = handler_->Tree().Access();
+    auto data = handler_->Data().Access();
     for (size_t i = 0; i < this->object_table_.size(); ++i) {
       ObjectElement const& elem = object_table_[i];
-      ConstStringRef key((char *)&(data_stack_.Access()[elem.key_begin]),
+      ConstStringRef key((char *)&(data[elem.key_begin]),
                          elem.key_end - elem.key_begin);
       writer.HandleString(key);
 
       writer.KeyValue();
 
       ValueKind kind = JsonTypeHandler::GetType(tree[elem.value]);
-      Json value{kind, elem.value, json_tree_.Data(),
-                       data_stack_.Data()};
+      Json value{kind, elem.value, handler_};
       value.Accept(writer);
       if (i != this->object_table_.size() - 1) {
         writer.Comma();

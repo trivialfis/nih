@@ -239,11 +239,8 @@ class ValueImpl {
   // class, while memory buffer is held in Document;
   friend Document;
   using ValueImplT = ValueImpl;
-  Container* handler;
-  // raw storage to JSON tree.
-  StorageView<size_t> json_tree_;
-  // raw storage to actual data.
-  StorageView<std::string::value_type> data_stack_;
+
+  Container* handler_;
   // Storing the type information for this node.
   ValueKind kind_ { ValueKind::kNull };
 
@@ -308,25 +305,15 @@ class ValueImpl {
   StringStorage  string_storage;
 
  protected:
-  ValueImpl(std::vector<size_t> *tree_storage_ref,
-            std::vector<std::string::value_type> *data_storage_ref)
-      : json_tree_{tree_storage_ref}, data_stack_{data_storage_ref} {
-  }
+  ValueImpl(Container *doc) : handler_{doc}, _tree_begin{0} {}
 
-  ValueImpl(std::vector<size_t> *tree_storage_ref,
-            std::vector<std::string::value_type> *data_storage_ref,
-            size_t tree_beg)
-      : json_tree_ {StorageView<size_t>{tree_storage_ref}},
-        data_stack_ {StorageView<std::string::value_type>{data_storage_ref}},
-        _tree_begin {tree_beg},
-        kind_{ValueKind::kNull} {}
+  ValueImpl(Container *doc, size_t tree_beg)
+      : handler_{doc}, _tree_begin{tree_beg}, kind_{ValueKind::kNull} {}
 
-  // ValueImpl knows how to construct itself from data kind and a pointer to its storage
-  ValueImpl(ValueKind kind, size_t tree_pointer,
-            StorageView<size_t> tree_stack,
-            StorageView<std::string::value_type> data_stack)
-      : kind_{kind}, _tree_begin{tree_pointer}, is_view_{true},
-        json_tree_{tree_stack}, data_stack_{data_stack} {
+  // ValueImpl knows how to construct itself from data kind and a pointer to
+  // its storage
+  ValueImpl(ValueKind kind, size_t tree_pointer, Container *doc)
+      : kind_{kind}, _tree_begin{tree_pointer}, is_view_{true}, handler_{doc} {
     switch (kind_) {
     case ValueKind::kInteger: {
       this->kind_ = ValueKind::kInteger;
@@ -338,7 +325,7 @@ class ValueImpl {
     }
     case ValueKind::kObject: {
       this->kind_ = ValueKind::kObject;
-      auto tree = json_tree_.Access();
+      Span<size_t> tree = handler_->Tree().Access();
       size_t table_offset = JsonTypeHandler::GetOffset(tree[_tree_begin]);
       size_t length = tree[table_offset];
       object_table_.resize(length);
@@ -353,12 +340,13 @@ class ValueImpl {
     }
     case ValueKind::kArray: {
       this->kind_ = ValueKind::kArray;
-      auto tree = json_tree_.Access();
+      Span<size_t> tree = handler_->Tree().Access();
       size_t table_offset = JsonTypeHandler::GetOffset(tree[_tree_begin]);
       size_t length = tree[table_offset];
       array_table_.resize(length);
       auto tree_ptr = table_offset + 1;
-      std::memcpy(array_table_.data(), tree.data() + tree_ptr, length * sizeof(size_t));
+      std::memcpy(array_table_.data(), tree.data() + tree_ptr,
+                  length * sizeof(size_t));
       break;
     }
     case ValueKind::kNull: {
@@ -367,7 +355,7 @@ class ValueImpl {
     }
     case ValueKind::kString: {
       this->kind_ = ValueKind::kString;
-      auto tree = json_tree_.Access();
+      Span<size_t> tree = handler_->Tree().Access();
       auto storage_ptr = JsonTypeHandler::GetOffset(tree[_tree_begin]);
       string_storage.beg = tree[storage_ptr];
       string_storage.end = tree[storage_ptr + 1];
@@ -391,40 +379,37 @@ class ValueImpl {
   template <typename T>
   void SetNumber(T value, ValueKind kind) {
     InitializeType(kind);
-    auto tree = json_tree_.Access();
-
-    auto const current_data_pointer = data_stack_.Top();
-    auto const current_tree_pointer = json_tree_.Top();
+    Span<size_t> tree = handler_->Tree().Access();
+    auto const current_data_pointer = handler_->Data().Top();
     tree[this->_tree_begin] =
         JsonTypeHandler::MakeTypedOffset(current_data_pointer, kind);
-    data_stack_.Push(&value, 1);
+    handler_->Data().Push(&value, 1);
   }
 
   template <typename T>
   T GetNumber(ValueKind kind) const {
     NIH_ASSERT(this->kind_ == kind) << KindStr(kind_) << " vs: " << KindStr(kind);
-    auto tree = json_tree_.Access();
+    Span<size_t> tree = handler_->Tree().Access();
     auto data_ptr = JsonTypeHandler::GetOffset(tree[_tree_begin]);
-    auto data = data_stack_.Access();
+    auto data = handler_->Data().Access();
     T value { T() };
     std::memcpy(&value, data.data() + data_ptr, sizeof(value));
     return value;
   }
 
  public:
-   ValueImpl(ValueImpl const &that)  // = delete
-       : _tree_begin{that._tree_begin}, json_tree_{that.json_tree_},
-         data_stack_{that.data_stack_}, object_table_{that.object_table_},
-         array_table_{that.array_table_}, kind_{that.kind_},
-         finalised_{that.finalised_}, is_view_{that.is_view_} {}
-  ValueImpl(ValueImpl&& that)
-      :
-      _tree_begin{that._tree_begin}, json_tree_{that.json_tree_},
-      data_stack_{that.data_stack_}, object_table_{std::move(that.object_table_)},
-      array_table_{std::move(that.array_table_)}, kind_{that.kind_},
-      finalised_{that.finalised_}, is_view_{that.is_view_} {
-        that.finalised_ = true;
-      }
+   ValueImpl(ValueImpl const &that) // = delete
+       : _tree_begin{that._tree_begin}, handler_{that.handler_},
+         object_table_{that.object_table_}, array_table_{that.array_table_},
+         kind_{that.kind_}, finalised_{that.finalised_}, is_view_{
+                                                             that.is_view_} {}
+   ValueImpl(ValueImpl &&that)
+       : _tree_begin{that._tree_begin}, handler_{that.handler_},
+         object_table_{std::move(that.object_table_)},
+         array_table_{std::move(that.array_table_)}, kind_{that.kind_},
+         finalised_{that.finalised_}, is_view_{that.is_view_} {
+     that.finalised_ = true;
+   }
 
    virtual ~ValueImpl() {
      if (!this->NeedFinalise()) { return; }
@@ -479,18 +464,20 @@ class ValueImpl {
 
   ValueImpl SetString(ConstStringRef string) {
     InitializeType(ValueKind::kString);
-    auto current_tree_pointer = json_tree_.Top();
-    auto tree = json_tree_.Access();
+    StorageView<size_t> tree_storage = handler_->Tree();
+    auto current_tree_pointer = tree_storage.Top();
+    auto tree = tree_storage.Access();
     tree[this->_tree_begin] = JsonTypeHandler::MakeTypedOffset(
         current_tree_pointer, ValueKind::kString);
 
-    this->json_tree_.Expand(2);
-    tree = json_tree_.Access();
+    tree_storage.Expand(2);
+    tree = tree_storage.Access();
 
-    auto current_data_pointer = this->data_stack_.Top();
+    StorageView<char> data_storage = handler_->Data();
+    auto current_data_pointer = data_storage.Top();
 
-    this->data_stack_.Expand(string.size());
-    auto data = data_stack_.Access();
+    data_storage.Expand(string.size());
+    auto data = data_storage.Access();
     std::memcpy(data.data() + current_data_pointer, string.data(), string.size());
 
     string_storage.beg = current_data_pointer;
@@ -503,8 +490,7 @@ class ValueImpl {
 
   ConstStringRef GetString() const {
     NIH_ASSERT(this->IsString());
-    auto tree = json_tree_.Access();
-    auto data = data_stack_.Access();
+    auto data = handler_->Data().Access();
     return {&data[string_storage.beg], string_storage.end - string_storage.beg};
   }
 
@@ -527,7 +513,7 @@ class ValueImpl {
   /*\brief Set this value to an array with pre-defined length. */
   ValueImpl SetArray(size_t length) {
     InitializeType(ValueKind::kArray);
-    auto tree = json_tree_.Access();
+    Span<size_t> tree = handler_->Tree().Access();
     tree[_tree_begin] = JsonTypeHandler::MakeTypedOffset(kElementEnd,
                                                          ValueKind::kArray);
     array_table_.resize(length, kElementEnd);
@@ -538,16 +524,17 @@ class ValueImpl {
   ValueImpl GetArrayElem(size_t index) {
     NIH_ASSERT(this->IsArray());
     NIH_ASSERT_LT(index, array_table_.size());
-    auto tree = json_tree_.Access();
+    StorageView<size_t> tree_storage = handler_->Tree();
+    auto tree = tree_storage.Access();
     ValueKind kind;
     if (array_table_[index] == kElementEnd) {
-      auto value = ValueImpl {json_tree_.Data(), data_stack_.Data(), json_tree_.Top()};
-      array_table_[index] = json_tree_.Top();
-      json_tree_.Expand(1);
+      auto value = ValueImpl {handler_, tree_storage.Top()};
+      array_table_[index] = tree_storage.Top();
+      tree_storage.Expand(1);
       return value;
     } else {
       kind = JsonTypeHandler::GetType(tree[array_table_[index]]);
-      ValueImpl value(kind, array_table_[index], json_tree_.Data(), data_stack_.Data());
+      ValueImpl value(kind, array_table_[index], handler_);
       return value;
     }
   }
@@ -559,17 +546,17 @@ class ValueImpl {
   }
   ValueImpl CreateArrayElem() {
     NIH_ASSERT(this->IsArray());
-    auto tree = json_tree_.Access();
-    auto value = ValueImpl {json_tree_.Data(), data_stack_.Data(), json_tree_.Top()};
-    array_table_.push_back(json_tree_.Top());
-    json_tree_.Expand(1);
+    StorageView<size_t> tree_storage = handler_->Tree();
+    auto value = ValueImpl {handler_, tree_storage.Top()};
+    array_table_.push_back(tree_storage.Top());
+    tree_storage.Expand(1);
     return value;
   }
 
   ValueImpl SetObject() {
     // initialize the value here.
     InitializeType(ValueKind::kObject);
-    auto tree = json_tree_.Access();
+    auto tree = handler_->Tree().Access();
     tree[_tree_begin] =
         JsonTypeHandler::MakeTypedOffset(_tree_begin, ValueKind::kObject);
     finalised_ = false;
@@ -578,36 +565,39 @@ class ValueImpl {
 
   ValueImpl CreateMember(ConstStringRef key) {
     NIH_ASSERT(this->IsObject());
-    size_t const current_tree_pointer = json_tree_.Top();
+    StorageView<size_t> tree_storage = handler_->Tree();
+    size_t const current_tree_pointer = tree_storage.Top();
     // allocate space for object element.
-    json_tree_.Expand(sizeof(ObjectElement) / sizeof(size_t) + 1);
-    auto tree = json_tree_.Access();
+    tree_storage.Expand(sizeof(ObjectElement) / sizeof(size_t) + 1);
+    auto tree = tree_storage.Access();
 
-    size_t const current_data_pointer = data_stack_.Top();
+    auto data_storage = handler_->Data();
+    size_t const current_data_pointer =  data_storage.Top();
     // allocate space for key
-    data_stack_.Expand(key.size() * sizeof(ConstStringRef::value_type));
-    auto data = data_stack_.Access();
+    data_storage.Expand(key.size() * sizeof(ConstStringRef::value_type));
+    auto data = data_storage.Access();
     std::copy(key.cbegin(), key.cend(), data.begin() + current_data_pointer);
 
     ObjectElement elem;
     elem.key_begin = current_data_pointer;
     elem.key_end = current_data_pointer + key.size();
-    elem.value = json_tree_.Top() - 1;
+    elem.value = tree_storage.Top() - 1;
 
     object_table_.push_back(elem);
 
-    auto value = ValueImpl{json_tree_.Data(), data_stack_.Data(), elem.value};
+    auto value = ValueImpl{handler_, elem.value};
     return value;
   }
 
   void EndObject() {
     NIH_ASSERT(!finalised_);
     NIH_ASSERT(this->IsObject()) << " Kind:" << KindStr(kind_);
-    size_t current_tree_pointer = json_tree_.Top();
+    StorageView<size_t> tree_storage = handler_->Tree();
+    size_t current_tree_pointer = tree_storage.Top();
     auto table_begin = current_tree_pointer;
 
-    json_tree_.Expand(object_table_.size() * 3 + 1);  // +1 length
-    auto tree = json_tree_.Access();
+    tree_storage.Expand(object_table_.size() * 3 + 1);  // +1 length
+    auto tree = tree_storage.Access();
     tree[current_tree_pointer] = object_table_.size();
     current_tree_pointer += 1;
 
@@ -626,11 +616,12 @@ class ValueImpl {
   void EndArray() {
     NIH_ASSERT(!finalised_);
     NIH_ASSERT(this->IsArray());
-    size_t current_tree_pointer = json_tree_.Top();
+    StorageView<size_t> tree_storage = handler_->Tree();
+    size_t current_tree_pointer = tree_storage.Top();
     auto table_begin = current_tree_pointer;
 
-    json_tree_.Expand(array_table_.size() + 1);
-    auto tree = json_tree_.Access();
+    tree_storage.Expand(array_table_.size() + 1);
+    auto tree = tree_storage.Access();
     tree[current_tree_pointer] = array_table_.size();
     current_tree_pointer += 1;
 
@@ -645,20 +636,21 @@ class ValueImpl {
   ValueImplT GetElemByIndex(size_t index) const {
     NIH_ASSERT(this->IsObject());
     NIH_ASSERT_LT(index, object_table_.size());
-    auto tree = json_tree_.Access();
+    StorageView<size_t> tree_storage = handler_->Tree();
+    auto tree = tree_storage.Access();
     auto elem = object_table_[index];
     ValueKind kind;
     size_t offset_in_tree;
     std::tie(kind, offset_in_tree) =
         JsonTypeHandler::GetTypeOffset(tree[elem.value]);
-    ValueImpl value{kind, elem.value, json_tree_.Data(), data_stack_.Data()};
+    ValueImpl value{kind, elem.value, handler_};
     return value;
   }
 
   const_iterator FindMemberByKey(ConstStringRef key) const {
     NIH_ASSERT(this->IsObject());
-    auto tree = json_tree_.Access();
-    auto data = data_stack_.Access();
+    Span<size_t> tree = handler_->Tree().Access();
+    auto data = handler_->Data().Access();
     for (size_t i = 0; i < object_table_.size(); ++i) {
       auto elem = object_table_[i];
       char const* c_str = &data[elem.key_begin];
@@ -724,22 +716,21 @@ class Document {
   int32_t n_alive_values_;
   int32_t n_alive_structs_;
 
-  size_t TreeTop() const { return _tree_storage.size(); }
-  Span<size_t> Tree() {
-    return Span<size_t> {_tree_storage};
+  StorageView<size_t> Tree() {
+    return StorageView<size_t>{&_tree_storage};
   }
-  size_t DataTop() const { return _data_storage.size(); }
-  Span<char> Data() {
-    return Span<char> {_data_storage};
+  StorageView<char> Data() {
+    return StorageView<char> {&_data_storage};
   }
+  friend Value;
 
  private:
-  Document(bool) : value(&_tree_storage, &_data_storage, 0) {
+  Document(bool) : value(this) {
     this->_tree_storage.resize(1);
   }
 
  public:
-  Document() : value(&_tree_storage, &_data_storage, 0) {
+  Document() : value(this) {
     // right now document root must be an object.
     this->_tree_storage.resize(1);
     this->value.SetObject();
@@ -748,7 +739,7 @@ class Document {
   Document(Document&& that) :
       _tree_storage{std::move(that._tree_storage)},
       _data_storage{std::move(that._data_storage)},
-      value{ValueImpl<Document>{&_tree_storage, &_data_storage, 0}},
+      value{ValueImpl<Document>{this}},
       err_code_{that.err_code_},
       last_character{that.last_character} {
         that.value.finalised_ = {true};
