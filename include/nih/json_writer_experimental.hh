@@ -10,17 +10,6 @@
 namespace nih {
 namespace experimental {
 
-template <typename T>
-struct NumericLimits;
-
-template <> struct NumericLimits<int64_t> {
-  static constexpr size_t kDigit10 = 21;
-};
-
-template <> struct NumericLimits<float> {
-  static constexpr size_t kDigit10 = 16;
-};
-
 class JsonWriter {
   std::vector<std::string::value_type> buffer_;
   char f2s_buffer_[NumericLimits<float>::kDigit10];

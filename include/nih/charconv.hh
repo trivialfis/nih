@@ -97,6 +97,17 @@ inline to_chars_result toCharsUnsignedImpl(char *first, char *last,
 }
 }  // anonymous namespace
 
+template <typename T>
+struct NumericLimits;
+
+template <> struct NumericLimits<int64_t> {
+  static constexpr size_t kDigit10 = 21;
+};
+
+template <> struct NumericLimits<float> {
+  static constexpr size_t kDigit10 = 16;
+};
+
 to_chars_result to_chars(char *first, char *last, int64_t value) {
   if (NIH_EXPECT(first == last, false)) {
     return {first, std::errc::value_too_large};
@@ -116,9 +127,13 @@ to_chars_result to_chars(char *first, char *last, int64_t value) {
 }
 
 to_chars_result to_chars(char  *first, char *last, float value) {
-  auto index = f2s_buffered_n(value, first);
+  if (NIH_EXPECT(!(last - first >= NumericLimits<float>::kDigit10), false)) {
+    return {first, std::errc::value_too_large};
+  }
+  auto index = toCharsFloatImpl(value, first);
   to_chars_result ret;
   ret.ptr = first + index;
+
   if (NIH_EXPECT(ret.ptr < last, true)) {
     ret.ec = std::errc();
   } else {

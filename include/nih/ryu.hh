@@ -548,19 +548,19 @@ struct RyuPrinter {
   }
 };
 
-inline int32_t f2s_buffered_n(float f, char * const result) {
+inline int32_t toCharsFloatImpl(float f, char * const result) {
   // Step 1: Decode the floating-point number, and unify normalized and
   // subnormal cases.
-  UnsignedFloatBase2 uf;
+  UnsignedFloatBase2 uf32;
   bool sign;
-  IEEE754::Decode(f, &uf, &sign);
+  IEEE754::Decode(f, &uf32, &sign);
 
   // Case distinction; exit early for the easy cases.
-  if (uf.Infinite() || uf.Zero()) {
-    return RyuPrinter::PrintSpecialFloat(sign, uf, result);
+  if (uf32.Infinite() || uf32.Zero()) {
+    return RyuPrinter::PrintSpecialFloat(sign, uf32, result);
   }
 
-  const UnsignedFloatBase10 v = PowerBaseComputer::Binary2Decimal(uf);
+  const UnsignedFloatBase10 v = PowerBaseComputer::Binary2Decimal(uf32);
   const auto index = RyuPrinter::PrintBase10Float(v, sign, result);
   return index;
 }
