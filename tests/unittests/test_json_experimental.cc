@@ -307,14 +307,13 @@ void TestRoundTrip(D dist) {
     doc.GetObject().EndObject();
     str = doc.dump();
   }
+  LOG_VAR(str);
 
   {
     TimerContext timer{"load and compare"};
     auto loaded = Document::load(str);
     auto j_numbers = *loaded.GetObject().FindMemberByKey("numbers");
     ASSERT_TRUE(j_numbers.IsArray());
-
-    auto str = loaded.dump();
 
     for (size_t i = 0; i < j_numbers.Length(); ++i) {
       auto v = j_numbers.GetArrayElem(i);

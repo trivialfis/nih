@@ -5,6 +5,7 @@
 #include <nih/json_experimental.hh>
 #include <nih/charconv.hh>
 #include <nih/logging.hh>
+#include <nih/fpconv.hh>
 
 namespace nih {
 namespace experimental {
@@ -107,14 +108,23 @@ class JsonWriter {
     std::memcpy(_buffer.data() + s, buffer.data(), buffer.size());
   }
   void HandleFloat(float f) {
-    char buffer[NumericLimits<float>::kDigit10];
-    auto ret = to_chars(buffer, buffer + NumericLimits<float>::kDigit10, f);
-    auto end = ret.ptr;
-    NIH_ASSERT(ret.ec == std::errc());
-    auto out_size = end - buffer;
-    auto ori_size = _buffer.size();
-    _buffer.resize(_buffer.size() + out_size);
-    std::memcpy(_buffer.data() + ori_size, buffer, end - buffer);
+    // {
+    //   char buffer[24];
+    //   size_t len = fpconv_dtoa(f, buffer);
+    //   // LOG_VAR(len);
+    //   auto ori_size = _buffer.size();
+    //   _buffer.resize(_buffer.size() + len);
+    //   std::memcpy(_buffer.data() + ori_size, buffer, len);
+    // }
+    {
+      auto ret = to_chars(f2s_buffer, f2s_buffer + NumericLimits<float>::kDigit10, f);
+      auto end = ret.ptr;
+      NIH_ASSERT(ret.ec == std::errc());
+      auto out_size = end - f2s_buffer;
+      auto ori_size = _buffer.size();
+      _buffer.resize(_buffer.size() + out_size);
+      std::memcpy(_buffer.data() + ori_size, f2s_buffer, end - f2s_buffer);
+    }
   }
   void HandleInteger(int64_t i) {
     auto ret = to_chars(i2s_buffer, i2s_buffer + NumericLimits<int64_t>::kDigit10, i);

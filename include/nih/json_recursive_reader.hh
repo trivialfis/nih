@@ -147,9 +147,18 @@ class JsonRecursiveReader {
       bool negative_exp {false};
       cursor_++;
 
-      if (*cursor_ == '-') {
+      switch (*cursor_) {
+      case '-': {
         negative_exp = true;
         cursor_++;
+        break;
+      }
+      case '+': {
+        cursor_++;
+        break;
+      }
+      default:
+        break;
       }
 
       if (NIH_EXPECT(*cursor_ >= '0' && *cursor_ <= '9', true)) {
