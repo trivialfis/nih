@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <nih/json_experimental.hh>
+#include <nih/json_writer_experimental.hh>
+#include <nih/json_reader_experimental.hh>
 #include <nih/random.hh>
 
 #include <random>
@@ -15,8 +17,7 @@ TEST(Json_Experimental, Basic) {
     auto value{doc.CreateMember("ok")};
     value.SetInteger(12);
 
-    std::string str = doc.Dump();
-    std::cout << str << std::endl;
+    std::string str = doc.Dump<JsonWriter>();
 
     ASSERT_NE(str.find(R"s("ok")s"), std::string::npos);
     ASSERT_NE(str.find('{'), std::string::npos);
@@ -24,7 +25,6 @@ TEST(Json_Experimental, Basic) {
     ASSERT_NE(str.find(':'), std::string::npos);
     ASSERT_EQ(doc.Length(), 1);
     ASSERT_NE(str.find(u8"12"), std::string::npos);
-    std::cout << str << std::endl;
   }
 
   {
@@ -32,15 +32,13 @@ TEST(Json_Experimental, Basic) {
     auto value{doc.CreateMember("ok")};
     value.SetFloat(12);
 
-    std::string str = doc.Dump();
-    std::cout << str << std::endl;
+    std::string str = doc.Dump<JsonWriter>();
     ASSERT_NE(str.find(R"s("ok")s"), std::string::npos);
     ASSERT_NE(str.find('{'), std::string::npos);
     ASSERT_NE(str.find('}'), std::string::npos);
     ASSERT_NE(str.find(':'), std::string::npos);
     ASSERT_EQ(doc.Length(), 1);
     ASSERT_NE(str.find(u8"1.2E1"), std::string::npos);
-    std::cout << str << std::endl;
   }
 }
 
@@ -61,8 +59,8 @@ TEST(Json_Experimental, ObjectGeneral) {
     level_1_1.SetInteger(1);
   }
 
-  ASSERT_EQ(doc.Dump(), R"s({"0-0":{"1-0":1.23E1},"0-1":{"1-1":1}})s");
-  LOG_VAR(doc.Dump());
+  ASSERT_EQ(doc.Dump<JsonWriter>(), R"s({"0-0":{"1-0":1.23E1},"0-1":{"1-1":1}})s");
+  LOG_VAR(doc.Dump<JsonWriter>());
 
   auto it = doc.GetObject().FindMemberByKey("0-0");
   ASSERT_NE(it, doc.GetObject().cend());
@@ -79,8 +77,7 @@ TEST(Json_Experimental, NestedObjects) {
     auto mem_value = value.CreateMember("member-key");
     mem_value.SetFloat(12.3);
   }
-  auto str = doc.Dump();
-  std::cout << str << std::endl;
+  auto str = doc.Dump<JsonWriter>();
 
   ASSERT_NE(str.find("member-key"), std::string::npos);
   ASSERT_NE(str.find("1.23"), std::string::npos);
@@ -94,8 +91,7 @@ TEST(Json_Experimental, MultipleObjects) {
   auto a_1 { doc.CreateMember("a_1") };
   a_1.SetFloat(3.14);
 
-  auto str = doc.Dump();
-  std::cout << str << std::endl;
+  auto str = doc.Dump<JsonWriter>();
 }
 
 TEST(Json_Experimental, Array) {
@@ -112,8 +108,7 @@ TEST(Json_Experimental, Array) {
     value.EndArray();
   }
 
-  std::string str = doc.Dump();
-  std::cout << str << std::endl;
+  std::string str = doc.Dump<JsonWriter>();
   ASSERT_NE(str.find('['), std::string::npos);
   ASSERT_NE(str.find(']'), std::string::npos);
   ASSERT_NE(str.find("array"), std::string::npos);
@@ -137,8 +132,7 @@ TEST(Json_Experimental, NestedArray) {
     r_1.GetArrayElem(1).SetFloat(3);
   }
 
-  auto str = doc.Dump();
-  std::cout << str << std::endl;
+  auto str = doc.Dump<JsonWriter>();
   ASSERT_EQ(str, R"s({"array":[[1.23E1,1.33E1],[7E1,3E0]]})s");
 }
 
@@ -147,31 +141,24 @@ TEST(Json_Experimental, String) {
   auto value {doc.CreateMember("string-member")};
   ASSERT_TRUE(value.SetString("hello world.").IsString());
 
-  auto str = doc.Dump();
-  std::cout << str << std::endl;
+  auto str = doc.Dump<JsonWriter>();
   ASSERT_EQ(str, R"str({"string-member":"hello world."})str");
 }
 
 TEST(Json_Experimental, Parse_String) {
   {
     std::string json_str = R"({"str":"guess what"})";
-    Document doc = Document::Load(json_str);
+    Document doc = Document::Load<JsonRecursiveReader>(json_str);
 
-    auto str = doc.Dump();
-    std::cout << str << std::endl;
+    auto str = doc.Dump<JsonWriter>();
     ASSERT_EQ(str, json_str);
   }
   {
     std::string json_str = R"({"str":"guess\\twhat"})";
 
-    for (auto v : json_str){
-      std::cout << v  << ' ';
-    }
-    std::cout << std::endl;
-    Document doc = Document::Load(json_str);
+    Document doc = Document::Load<JsonRecursiveReader>(json_str);
 
-    auto str = doc.Dump();
-    std::cout << str << std::endl;
+    auto str = doc.Dump<JsonWriter>();
     ASSERT_EQ(str, "{\"str\":\"guess\twhat\"}");
   }
 }
@@ -180,27 +167,26 @@ TEST(Json_Experimental, Parse_Object) {
   {
     // parse empty object
     std::string json_str = R"({})";
-    Document doc = Document::Load(json_str);
+    Document doc = Document::Load<JsonRecursiveReader>(json_str);
     ASSERT_EQ(doc.Errc(), jError::kSuccess);
 
-    auto str = doc.Dump();
+    auto str = doc.Dump<JsonWriter>();
     ASSERT_EQ(str, R"({})");
   }
   {
     std::string json_str = R"({"rank":1})";
-    Document doc = Document::Load(json_str);
+    Document doc = Document::Load<JsonRecursiveReader>(json_str);
     ASSERT_EQ(doc.Errc(), jError::kSuccess);
 
-    auto str = doc.Dump();
+    auto str = doc.Dump<JsonWriter>();
     ASSERT_EQ(str, R"({"rank":1})");
   }
   {
     std::string json_str = R"({"rank":1.23})";
-    Document doc = Document::Load(json_str);
+    Document doc = Document::Load<JsonRecursiveReader>(json_str);
     ASSERT_EQ(doc.Errc(), jError::kSuccess);
 
-    auto str = doc.Dump();
-    std::cout << str << std::endl;
+    auto str = doc.Dump<JsonWriter>();
     ASSERT_EQ(str, R"({"rank":1.23E0})");
   }
 }
@@ -208,54 +194,48 @@ TEST(Json_Experimental, Parse_Object) {
 TEST(Json_Experimental, Parse_NestedObject) {
   {
     std::string json_str = R"({"ok":{"member-key":1.23E1}})";
-    Document doc = Document::Load(json_str);
+    Document doc = Document::Load<JsonRecursiveReader>(json_str);
     ASSERT_EQ(doc.Errc(), jError::kSuccess);
 
-    auto str = doc.Dump();
-    std::cout << doc.ErrStr() << std::endl;
-    std::cout << str << std::endl;
+    auto str = doc.Dump<JsonWriter>();
     ASSERT_EQ(str, R"({"ok":{"member-key":1.23E1}})");
   }
 }
 
 TEST(Json_Experimental, Parse_Array) {
   std::string json_str = R"s({"arr":[12,2,3,3,4]})s";
-  Document doc = Document::Load(json_str);
+  Document doc = Document::Load<JsonRecursiveReader>(json_str);
   ASSERT_EQ(doc.Errc(), jError::kSuccess);
 
-  auto str = doc.Dump();
-  // ASSERT_EQ(str, json_str);
-  std::cout << str << std::endl;
+  auto str = doc.Dump<JsonWriter>();
+  ASSERT_EQ(str, json_str);
 }
 
 TEST(Json_Experimental, Parse_ObjectOfArrays) {
   std::string json_str = R"s({"arr_0":[12,2,3,3,4],"arr_1":[0E0,2,3,3,4]})s";
-  Document doc = Document::Load(json_str);
+  Document doc = Document::Load<JsonRecursiveReader>(json_str);
   ASSERT_EQ(doc.Errc(), jError::kSuccess);
 
-  auto str = doc.Dump();
+  auto str = doc.Dump<JsonWriter>();
   ASSERT_EQ(str, json_str);
-  std::cout << str << std::endl;
 }
 
 TEST(Json_Experimental, Parse_ArrayOfObjects) {
   std::string json_str = R"s({"key":[{"o_0":0},{"o_1":1}]})s";
-  Document doc = Document::Load(json_str);
+  Document doc = Document::Load<JsonRecursiveReader>(json_str);
   ASSERT_EQ(doc.Errc(), jError::kSuccess);
 
-  auto str = doc.Dump();
+  auto str = doc.Dump<JsonWriter>();
   ASSERT_EQ(str, json_str);
-  std::cout << str << std::endl;
 }
 
 TEST(Json_Experimental, Parse_NestedArray) {
   std::string json_str = R"s({"arr":[[1,2],[3,4],[5,6]]})s";
-  Document doc = Document::Load(json_str);
+  Document doc = Document::Load<JsonRecursiveReader>(json_str);
   ASSERT_EQ(doc.Errc(), jError::kSuccess);
 
-  auto str = doc.Dump();
+  auto str = doc.Dump<JsonWriter>();
   ASSERT_EQ(str, json_str);
-  std::cout << str << std::endl;
 }
 
 TEST(Json_Experimental, Real) {
@@ -266,17 +246,16 @@ TEST(Json_Experimental, Real) {
 
   {
     TimerContext timer{"load"};
-    Document doc = Document::Load(content);
+    Document doc = Document::Load<JsonRecursiveReader>(content);
 
     std::string str;
     {
       TimerContext timer{"dump"};
-      str = doc.Dump();
+      str = doc.Dump<JsonWriter>();
     }
 
     std::ofstream fout {"dumped.json"};
     fout << str;
-    std::cout << str;
   }
   std::cout << GlobalMonitor::ins().toString();
 }
@@ -306,13 +285,13 @@ void TestRoundTrip(D dist) {
 
     j_numbers.EndArray();
     doc.GetObject().EndObject();
-    str = doc.Dump();
+    str = doc.Dump<JsonWriter>();
   }
   LOG_VAR(str);
 
   {
     TimerContext timer{"load and compare"};
-    auto loaded = Document::Load(str);
+    auto loaded = Document::Load<JsonRecursiveReader>(str);
     auto j_numbers = *loaded.GetObject().FindMemberByKey("numbers");
     ASSERT_TRUE(j_numbers.IsArray());
 
@@ -321,8 +300,6 @@ void TestRoundTrip(D dist) {
       ASSERT_EQ(v.GetFloat(), numbers[i]);
     }
   }
-
-  std::cout << GlobalMonitor::ins().toString();
 }
 
 TEST(Json_Experimental, RoundTrip) {

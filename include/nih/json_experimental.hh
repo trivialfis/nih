@@ -946,58 +946,46 @@ class Document {
         msg = "Unknown construct.";
         break;
       default:
-        // LOG(FATAL) << "Unknown error code";
-        return "Unknown error code";
+        LOG(FATAL) << "Unknown error code";
     }
     msg += " at character:" + std::to_string(last_character);
     return msg;
   }
 
-  static Document Load(StringRef json_str);
-  std::string Dump();
+  template <typename Reader>
+  static Document Load(StringRef json_str) {
+    Document doc(false);
+    doc._tree_storage.reserve(json_str.size() * 2);
+    {
+      // FIXME(trivialfis): Don't copy
+      doc._data_storage.reserve(json_str.size() * 2);
+    }
+
+    Reader reader(json_str, &(doc.value));
+
+    std::tie(doc.err_code_, doc.last_character) = reader.Parse();
+    NIH_ASSERT(doc.value.IsObject());
+
+    return doc;
+  }
+  template <typename Writer>
+  std::string Dump() {
+    NIH_ASSERT(err_code_ == jError::kSuccess);
+    if (!value.finalised_) {
+      value.EndObject();
+    }
+    NIH_ASSERT(value.finalised_);
+    std::string result;
+    Writer writer;
+
+    this->value.Accept(writer);
+    writer.TakeResult(&result);
+
+    return result;
+  }
 };
 
 using Json = ValueImpl<Document>;
 }  // namespace experimental
 }  // namespace nih
-
-#include "json_recursive_reader.hh"
-#include "json_writer_experimental.hh"
-
-namespace nih {
-namespace experimental {
-inline Document Document::Load(StringRef json_str) {
-  Document doc(false);
-  doc._tree_storage.reserve(json_str.size() * 2);
-  {
-    // FIXME(trivialfis): Don't copy
-    doc._data_storage.reserve(json_str.size() * 2);
-  }
-
-  JsonRecursiveReader reader(json_str, &(doc.value));
-
-  std::tie(doc.err_code_, doc.last_character) = reader.Parse();
-  NIH_ASSERT(doc.value.IsObject());
-
-  return doc;
-}
-
-inline std::string Document::Dump() {
-  NIH_ASSERT(err_code_ == jError::kSuccess);
-  if (!value.finalised_) {
-    value.EndObject();
-  }
-  NIH_ASSERT(value.finalised_);
-  std::string result;
-  JsonWriter writer;
-
-  this->value.Accept(writer);
-  writer.TakeResult(&result);
-
-  return result;
-}
-
-}
-}
-
 #endif  // _NIH_JSON_EXPERIMENTAL_HH_
