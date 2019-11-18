@@ -852,15 +852,16 @@ enum class jError : std::uint8_t {
  */
 class Document {
   jError err_code_ { jError::kSuccess };
-  size_t last_character {0};
 
   std::vector<size_t> _tree_storage;
   std::vector<std::string::value_type> _data_storage;
 
+  int32_t n_alive_values_{0};
+
   using Value = ValueImpl<Document>;
   Value value;
-
-  int32_t n_alive_values_;
+  /*\brief Last character used in reporting parsing error. */
+  size_t last_character;
 
   StorageView<size_t> Tree() {
     return StorageView<size_t>{&_tree_storage};
@@ -886,16 +887,20 @@ class Document {
   };
 
   void AssertValidExit() {
-    NIH_ASSERT_EQ(n_alive_values_, 0) << "All values must go out of scope before Document.";
+    NIH_ASSERT_EQ(n_alive_values_, 1) << "All values must go out of scope before Document.";
     NIH_ASSERT(value.finalised_);
   }
 
  private:
-  Document(bool) : n_alive_values_ {0},
-                   value(this) { this->_tree_storage.resize(1); }
+  Document(bool) :
+      // n_alive_values_ {0},
+      value(this),
+      last_character{0} {
+    this->_tree_storage.resize(1);
+  }
 
  public:
-  Document() : n_alive_values_ {0}, value(this) {
+  Document() : value(this), last_character{0} {
     // right now document root must be an object.
     this->_tree_storage.resize(1);
     this->value.SetObject();
@@ -903,7 +908,7 @@ class Document {
   Document(Document const& that) = delete;
   Document(Document&& that) :
       err_code_{that.err_code_},
-      n_alive_values_ {0},
+      n_alive_values_ {that.n_alive_values_},
       last_character{that.last_character},
       _tree_storage{std::move(that._tree_storage)},
       _data_storage{std::move(that._data_storage)},

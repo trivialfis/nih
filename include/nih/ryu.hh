@@ -155,7 +155,7 @@ struct RyuPowLogUtils {
   // Returns true if value is divisible by 2^p.
   static bool MultipleOfPowerOf2(const uint32_t value, const uint32_t p) noexcept(true) {
 #ifdef __GNUC__
-    return __builtin_ctz(value) >= p;
+    return static_cast<uint32_t>(__builtin_ctz(value)) >= p;
 #else
     return (value & ((1u << p) - 1)) == 0;
 #endif  //  __GNUC__
