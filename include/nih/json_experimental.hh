@@ -69,19 +69,6 @@ inline std::string KindStr(ValueKind kind) {
   return "";
 }
 
-template <typename T>
-class LeakedAllocator : public std::allocator<T> {
- public:
-  LeakedAllocator(std::allocator<T> const &that) {}
-  LeakedAllocator(std::allocator<T>&& that) {}
-  T *allocate(size_t n) {
-    return std::allocator<T>::allocate(n);
-  }
-  void deallocate(T *ptr, size_t n) {
-
-  }
-};
-
 /*! \brief A mutable string_view. */
 template <typename CharT>
 class StringRefImpl {
@@ -271,6 +258,11 @@ class Document;
  *          also the offsets of `self_` for its members.
  *     - String
  *          Points to a struct containing the offsets of begin and end in data memory block.
+ *
+ *  A value must be "derived" from a document, meaning that you can't simply define a
+ *  value (default constructor is implicitly deleted).  A value must be created from an
+ *  existing document or another value that is an Object aor Array.  This simplifies
+ *  memory management.
  */
 template <typename Container, size_t kElementEnd = std::numeric_limits<size_t>::max()>
 class ValueImpl {
@@ -480,7 +472,7 @@ class ValueImpl {
   /*\brief Accept a writer for dump. */
   template <typename Writer> void Accept(Writer &writer) {
     // Here this object is assumed to be already initialized.
-    switch (this->get_type()) {
+    switch (this->GetType()) {
     case ValueKind::kFalse: {
       writer.HandleFalse();
       break;
@@ -562,7 +554,7 @@ class ValueImpl {
     if (!this->NeedFinalise()) {
       return;
     }
-    switch (this->get_type()) {
+    switch (this->GetType()) {
     case ValueKind::kObject: {
       this->EndObject();
       break;
@@ -831,7 +823,7 @@ class ValueImpl {
     return const_iterator {this, object_table_.size()};
   }
 
-  ValueKind get_type() const {
+  ValueKind GetType() const {
     return this->kind_;
   }
 };
