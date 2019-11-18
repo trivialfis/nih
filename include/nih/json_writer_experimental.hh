@@ -53,36 +53,43 @@ class JsonWriter {
 
   void HandleString(ConstStringRef string) {
     std::string buffer;
-    buffer.reserve(buffer.size() + string.size());
+    buffer.reserve(string.size());
 
     buffer += '"';
     for (size_t i = 0; i < string.size(); i++) {
-      const char ch = string[i];
-      if (ch == '\\') {
-        if (i < string.size() && string[i + 1] == 'u') {
-          buffer += "\\";
-        } else {
-          buffer += "\\\\";
-        }
-      } else if (ch == '"') {
-        buffer += "\\\"";
-      } else if (ch == '\b') {
-        buffer += "\\b";
-      } else if (ch == '\f') {
+      switch (string[i]) {
+      case '\\': {
+        buffer += u8"\\\\";
+        break;
+      }
+      case '\"': {
+        buffer += u8"\\\"";
+        break;
+      }
+      case '\b': {
+        buffer += u8"\\b";
+        break;
+      }
+      case '\f': {
         buffer += "\\f";
-      } else if (ch == '\n') {
-        buffer += "\\n";
-      } else if (ch == '\r') {
-        buffer += "\\r";
-      } else if (ch == '\t') {
+        break;
+      }
+      case '\t': {
         buffer += "\\t";
-      } else if (static_cast<uint8_t>(ch) <= 0x1f) {
-        // Unit separator
-        char buf[8];
-        snprintf(buf, sizeof buf, "\\u%04x", ch);
-        buffer += buf;
-      } else {
-        buffer += ch;
+        break;
+      }
+      case '\r': {
+        buffer += "\\r";
+        break;
+      }
+      case '\n': {
+        buffer += "\\n";
+        break;
+      }
+      default: {
+        buffer += string[i];
+        break;
+      }
       }
     }
     buffer += '"';
@@ -92,13 +99,6 @@ class JsonWriter {
     std::memcpy(buffer_.data() + s, buffer.data(), buffer.size());
   }
   void HandleFloat(float f) {
-    // {
-    //   char buffer[24];
-    //   size_t len = fpconv_dtoa(f, buffer);
-    //   auto ori_size = _buffer.size();
-    //   _buffer.resize(_buffer.size() + len);
-    //   std::memcpy(_buffer.data() + ori_size, buffer, len);
-    // }
     {
       auto ret = to_chars(f2s_buffer_, f2s_buffer_ + NumericLimits<float>::kDigit10, f);
       auto end = ret.ptr;

@@ -154,12 +154,12 @@ TEST(Json_Experimental, Parse_String) {
     ASSERT_EQ(str, json_str);
   }
   {
-    std::string json_str = R"({"str":"guess\\twhat"})";
+    std::string json_str = R"({"str":"guess\twhat"})";
 
     Document doc = Document::Load<JsonRecursiveReader>(json_str);
 
     auto str = doc.Dump<JsonWriter>();
-    ASSERT_EQ(str, "{\"str\":\"guess\twhat\"}");
+    ASSERT_EQ(str, R"str({"str":"guess\twhat"})str");
   }
 }
 
