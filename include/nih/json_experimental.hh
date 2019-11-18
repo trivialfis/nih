@@ -282,9 +282,6 @@ class ValueImpl {
   bool finalised_ {false};
 
  public:
-  // A guard for invalid pointer.
-  // static size_t constexpr kElementEnd { std::numeric_limits<size_t>::max() };
-
   // This is a node in the singly linked list
   struct ObjectElement {
     /*\brief Address of value in JSON tree. */
@@ -297,6 +294,28 @@ class ValueImpl {
 
   using iterator = ElemIterator<ValueImplT, false>;
   using const_iterator = ElemIterator<ValueImplT, true>;
+
+ protected:
+  void InitializeType(ValueKind kind) {
+    NIH_ASSERT_EQ(static_cast<uint8_t>(this->kind_),
+                  static_cast<uint8_t>(ValueKind::kNull));
+    NIH_ASSERT(!finalised_) << "You can not change an existing value.";
+    this->kind_ = kind;
+  }
+
+  void CheckType(ValueKind type) const {
+    NIH_ASSERT_EQ(static_cast<std::uint8_t>(type), static_cast<std::uint8_t>(this->kind_));
+  }
+  void CheckType(ValueKind a, ValueKind b) const {
+    NIH_ASSERT(static_cast<std::uint8_t>(a) == static_cast<std::uint8_t>(this->kind_) ||
+               static_cast<std::uint8_t>(b) == static_cast<std::uint8_t>(this->kind_));
+  }
+
+  bool NeedFinalise() const {
+    return !is_view_ && !finalised_ && (this->IsArray() || this->IsObject());
+  }
+
+ protected :
 
   struct StringStorage {
     size_t beg;
@@ -349,27 +368,6 @@ class ValueImpl {
     }
   };
 
- protected:
-  void InitializeType(ValueKind kind) {
-    NIH_ASSERT_EQ(static_cast<uint8_t>(this->kind_),
-                  static_cast<uint8_t>(ValueKind::kNull));
-    NIH_ASSERT(!finalised_) << "You can not change an existing value.";
-    this->kind_ = kind;
-  }
-
-  void CheckType(ValueKind type) const {
-    NIH_ASSERT_EQ(static_cast<std::uint8_t>(type), static_cast<std::uint8_t>(this->kind_));
-  }
-  void CheckType(ValueKind a, ValueKind b) const {
-    NIH_ASSERT(static_cast<std::uint8_t>(a) == static_cast<std::uint8_t>(this->kind_) ||
-               static_cast<std::uint8_t>(b) == static_cast<std::uint8_t>(this->kind_));
-  }
-
-  bool NeedFinalise() const {
-    return !is_view_ && !finalised_ && (this->IsArray() || this->IsObject());
-  }
-
- protected :
   // explict working memory for non-trivial types.
   std::vector<ObjectElement> object_table_;
   ArrayTable array_table_;
