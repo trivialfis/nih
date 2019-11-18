@@ -207,7 +207,7 @@ struct RyuPowLogUtils {
   /*
    * \brief floor(e * log_10(2)).
    */
-  static uint32_t log10Pow2(const int32_t e) noexcept(true) {
+  static uint32_t Log10Pow2(const int32_t e) noexcept(true) {
     // The first value this approximation fails for is 2^1651 which is just
     // greater than 10^297.
     assert(e >= 0);
@@ -229,13 +229,13 @@ struct RyuPowLogUtils {
 
 class PowerBaseComputer {
  private:
-   static void ToDecimalBase(bool accept_bounds, uint32_t mmShift,
-                             MantissaInteval base2, MantissaInteval *base10,
-                             bool *vmIsTrailingZeros,
-                             bool *vrIsTrailingZeros) noexcept(true) {
-     uint8_t last_removed_digit = 0;
+   static uint8_t ToDecimalBase(bool accept_bounds, uint32_t mmShift,
+                                MantissaInteval base2, MantissaInteval *base10,
+                                bool *vmIsTrailingZeros,
+                                bool *vrIsTrailingZeros) noexcept(true) {
+     uint8_t last_removed_digit;
      if (base2.exponent >= 0) {
-       const uint32_t q = RyuPowLogUtils::log10Pow2(base2.exponent);
+       const uint32_t q = RyuPowLogUtils::Log10Pow2(base2.exponent);
        base10->exponent = static_cast<int32_t>(q);
        const int32_t k = RyuPowLogUtils::kFloatPow5InvBitcount +
                          RyuPowLogUtils::Pow5Bits(static_cast<int32_t>(q)) - 1;
@@ -317,6 +317,7 @@ class PowerBaseComputer {
              RyuPowLogUtils::MultipleOfPowerOf2(base2.mantissa_correct, q - 1);
        }
      }
+     return last_removed_digit;
    }
 
   /*
@@ -325,10 +326,10 @@ class PowerBaseComputer {
   static UnsignedFloatBase10
   ShortestRepresentation(bool mantissa_low_is_trailing_zeros,
                          bool vrIsTrailingZeros, bool const acceptBounds,
+                         uint8_t last_removed_digit,
                          MantissaInteval base10) noexcept(true) {
     int32_t removed {0};
     uint32_t output {0};
-    uint8_t last_removed_digit {0};
     if (mantissa_low_is_trailing_zeros || vrIsTrailingZeros) {
       // General case, which happens rarely (~4.0%).
       while (base10.mantissa_high / 10 > base10.mantissa_low / 10) {
@@ -415,16 +416,15 @@ class PowerBaseComputer {
     MantissaInteval base10_range;
     bool mantissa_low_is_trailing_zeros = false;
     bool mantissa_out_is_trailing_zeros = false;
-    PowerBaseComputer::ToDecimalBase(acceptBounds, mantissa_low_shift, base2_range,
-                                     &base10_range,
-                                     &mantissa_low_is_trailing_zeros,
-                                     &mantissa_out_is_trailing_zeros);
+    auto last_removed_digit = PowerBaseComputer::ToDecimalBase(
+        acceptBounds, mantissa_low_shift, base2_range, &base10_range,
+        &mantissa_low_is_trailing_zeros, &mantissa_out_is_trailing_zeros);
 
     // Step 4: Find the shortest decimal representation in the interval of valid
     // representations.
     auto out = ShortestRepresentation(mantissa_low_is_trailing_zeros,
                                       mantissa_out_is_trailing_zeros,
-                                      acceptBounds, base10_range);
+                                      acceptBounds, last_removed_digit, base10_range);
     return out;
   }
 };
