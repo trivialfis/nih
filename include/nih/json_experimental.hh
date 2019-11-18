@@ -14,6 +14,8 @@
  *
  * You should have received a copy of the Lesser GNU General Public License
  * along with NIH.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * \brief A JSON implementation, no utf-8 support yet.
  */
 #ifndef _NIH_JSON_EXPERIMENTAL_HH_
 #define _NIH_JSON_EXPERIMENTAL_HH_
@@ -223,6 +225,7 @@ struct JsonTypeHandler {
   }
 };
 
+/*\brief A view over std::vector<T>. */
 template <typename T>
 class StorageView {
   std::vector<T> *storage_ref_;
@@ -871,6 +874,21 @@ class Document {
   }
   friend Value;
 
+  class GlobalCLocale {
+    std::locale ori_;
+
+  public:
+    GlobalCLocale() : ori_{std::locale()} {
+      std::string const name{"C"};
+      try {
+        std::locale::global(std::locale(name.c_str()));
+      } catch (std::runtime_error const &e) {
+        LOG(FATAL) << "Failed to set locale: " << name;
+      }
+    }
+    ~GlobalCLocale() { std::locale::global(ori_); }
+  };
+
  private:
   Document(bool) : value(this) {
     this->_tree_storage.resize(1);
@@ -962,6 +980,9 @@ class Document {
 
   template <typename Reader>
   static Document Load(StringRef json_str) {
+    // only used in loading as slow path for reading float is `std::strtod', while any
+    // other place has dedicated implementation.
+    GlobalCLocale guard;
     Document doc(false);
     doc._tree_storage.reserve(json_str.size() * 2);
     doc._data_storage.reserve(json_str.size() * 2);
