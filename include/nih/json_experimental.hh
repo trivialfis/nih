@@ -384,15 +384,20 @@ class ValueImpl {
   StringStorage  string_storage;
 
  protected:
-  ValueImpl(Container *doc) : handler_{doc}, self_{0} {}
+  ValueImpl(Container *doc) : handler_{doc}, self_{0} {
+    handler_->Incref();
+  }
 
   ValueImpl(Container *doc, size_t tree_beg)
-      : handler_{doc}, self_{tree_beg}, kind_{ValueKind::kNull} {}
+      : handler_{doc}, self_{tree_beg}, kind_{ValueKind::kNull} {
+    handler_->Incref();
+  }
 
   // ValueImpl knows how to construct itself from data kind and a pointer to
   // its storage
   ValueImpl(Container *doc, ValueKind kind, size_t self)
       : handler_{doc}, self_{self}, kind_{kind}, is_view_{true} {
+    handler_->Incref();
     switch (kind_) {
     case ValueKind::kInteger: {
       this->kind_ = ValueKind::kInteger;
@@ -549,9 +554,11 @@ class ValueImpl {
         object_table_{std::move(that.object_table_)},
         array_table_{std::move(that.array_table_)} {
     that.finalised_ = true;
+    handler_->Incref();
   }
 
   virtual ~ValueImpl() {
+    handler_->Decref();
     if (!this->NeedFinalise()) {
       return;
     }
@@ -864,7 +871,6 @@ class Document {
   Value value;
 
   int32_t n_alive_values_;
-  int32_t n_alive_structs_;
 
   StorageView<size_t> Tree() {
     return StorageView<size_t>{&_tree_storage};
@@ -889,13 +895,17 @@ class Document {
     ~GlobalCLocale() { std::locale::global(ori_); }
   };
 
- private:
-  Document(bool) : value(this) {
-    this->_tree_storage.resize(1);
+  void AssertValidExit() {
+    NIH_ASSERT_EQ(n_alive_values_, 0) << "All values must go out of scope before Document.";
+    NIH_ASSERT(value.finalised_);
   }
 
+ private:
+  Document(bool) : n_alive_values_ {0},
+                   value(this) { this->_tree_storage.resize(1); }
+
  public:
-  Document() : value(this) {
+  Document() : n_alive_values_ {0}, value(this) {
     // right now document root must be an object.
     this->_tree_storage.resize(1);
     this->value.SetObject();
@@ -903,6 +913,7 @@ class Document {
   Document(Document const& that) = delete;
   Document(Document&& that) :
       err_code_{that.err_code_},
+      n_alive_values_ {0},
       last_character{that.last_character},
       _tree_storage{std::move(that._tree_storage)},
       _data_storage{std::move(that._data_storage)},
@@ -918,6 +929,7 @@ class Document {
     if (!value.finalised_) {
       value.EndObject();
     }
+    AssertValidExit();
   };
 
   Value CreateMember(ConstStringRef key) {
@@ -933,8 +945,6 @@ class Document {
 
   void Decref() { this->n_alive_values_--; }
   void Incref() { this->n_alive_values_++; }
-  void BegStruct() { this->n_alive_structs_++; }
-  void EndStruct() { this->n_alive_structs_--; }
 
   size_t Length() const {
     return this->value.Length();
@@ -998,7 +1008,7 @@ class Document {
     if (!value.finalised_) {
       value.EndObject();
     }
-    NIH_ASSERT(value.finalised_);
+    AssertValidExit();
     std::string result;
     Writer writer;
 

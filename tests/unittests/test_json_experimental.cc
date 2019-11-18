@@ -14,8 +14,10 @@ namespace experimental {
 TEST(Json_Experimental, Basic) {
   {
     Document doc;
-    auto value{doc.CreateMember("ok")};
-    value.SetInteger(12);
+    {
+      auto value{doc.CreateMember("ok")};
+      value.SetInteger(12);
+    }
 
     std::string str = doc.Dump<JsonWriter>();
 
@@ -29,8 +31,10 @@ TEST(Json_Experimental, Basic) {
 
   {
     Document doc;
-    auto value{doc.CreateMember("ok")};
-    value.SetFloat(12);
+    {
+      auto value{doc.CreateMember("ok")};
+      value.SetFloat(12);
+    }
 
     std::string str = doc.Dump<JsonWriter>();
     ASSERT_NE(str.find(R"s("ok")s"), std::string::npos);
@@ -85,12 +89,15 @@ TEST(Json_Experimental, NestedObjects) {
 
 TEST(Json_Experimental, MultipleObjects) {
   Document doc;
-  auto a_0 { doc.CreateMember("a_0") };
-  a_0.SetInteger(34);
+  {
+    auto a_0{doc.CreateMember("a_0")};
+    a_0.SetInteger(34);
+  }
 
-  auto a_1 { doc.CreateMember("a_1") };
-  a_1.SetFloat(3.14);
-
+  {
+    auto a_1{doc.CreateMember("a_1")};
+    a_1.SetFloat(3.14);
+  }
   auto str = doc.Dump<JsonWriter>();
 }
 
@@ -138,8 +145,10 @@ TEST(Json_Experimental, NestedArray) {
 
 TEST(Json_Experimental, String) {
   Document doc;
-  auto value {doc.CreateMember("string-member")};
-  ASSERT_TRUE(value.SetString("hello world.").IsString());
+  {
+    auto value{doc.CreateMember("string-member")};
+    ASSERT_TRUE(value.SetString("hello world.").IsString());
+  }
 
   auto str = doc.Dump<JsonWriter>();
   ASSERT_EQ(str, R"str({"string-member":"hello world."})str");
@@ -273,9 +282,9 @@ void TestRoundTrip(D dist) {
   }
 
   std::string str;
+
+  Document doc;
   {
-    TimerContext timer{"generate"};
-    Document doc;
     auto j_numbers = doc.CreateMember("numbers");
     j_numbers.SetArray(kElems);
 
@@ -285,10 +294,8 @@ void TestRoundTrip(D dist) {
 
     j_numbers.EndArray();
     doc.GetObject().EndObject();
-    str = doc.Dump<JsonWriter>();
   }
-  LOG_VAR(str);
-
+  str = doc.Dump<JsonWriter>();
   {
     TimerContext timer{"load and compare"};
     auto loaded = Document::Load<JsonRecursiveReader>(str);
