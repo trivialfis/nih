@@ -14,7 +14,7 @@
 namespace nih {
 namespace experimental {
 
-double FastPath(double significand, int exp) {
+inline double FastPath(double significand, int exp) {
   if (exp < -308) {
     return 0.0;
   } else if (exp >= 0) {
@@ -192,7 +192,7 @@ class JsonRecursiveReader {
   ConstStringRef HandleString() {
     auto ret = this->Skip(&cursor_, '\"');
     if (NIH_EXPECT(!ret, false)) {
-      errno_ = jError::kInvalidObject;
+      errno_ = jError::kInvalidString;
       return {0, 0};
     }
 
@@ -304,6 +304,7 @@ class JsonRecursiveReader {
       return;
     }
     value->SetArray();
+    value->SizeHint(8);
 
     cursor_ = this->SkipWhitespaces(cursor_);
 
@@ -444,6 +445,8 @@ class JsonRecursiveReader {
        : input_{str}, cursor_{input_.begin()}, handler_{handler} {
    }
 };
+
+#undef JSON_PARSER_ASSERT_RETURN
 
 }      // namespace experimental
 }      // namespace nih

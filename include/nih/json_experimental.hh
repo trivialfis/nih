@@ -244,7 +244,31 @@ class StorageView {
 };
 
 class Document;
-
+/*
+ * \brief The real implementation for JSON values.
+ *
+ * Memory layout:
+ *
+ *   Document class holds all the allocated memory, which includes one block for JSON
+ *   tree, and another block for JSON data.  Each JSON value holds a `self_` offset
+ *   pointing it's location in the tree memory block.  First 3 bits of tree[self_] packs
+ *   the type information of this value, while the rest of the bits is used by value
+ *   itself to index its data, depending on the value type.
+ *
+ *     - Numeric inlcuding integer and float:
+ *         `self_` points to data memory holding the actual integer or float.
+ *     - Null, True, False
+ *         Only first 3 bits of `self_` is used, the information is directly encoded in
+ *         it's type.
+ *     - Array
+ *         `self_` points to a table stored in tree, which stores the indices of `self_`
+ *         for each array element.
+ *     - Object
+ *          `self_` points to a table stored in tree, which stores the key begin and end,
+ *          also the offsets of `self_` for its members.
+ *     - String
+ *          Points to a struct containing the offsets of begin and end in data memory block.
+ */
 template <typename Container, size_t kElementEnd = std::numeric_limits<size_t>::max()>
 class ValueImpl {
  protected:
@@ -253,13 +277,14 @@ class ValueImpl {
   friend Document;
   using ValueImplT = ValueImpl;
 
+  // The document class which contains all the allocated memory.
   Container* handler_;
   // A `this` pointer pointing to JSON tree, with type information written in first 3 bits.
   size_t self_ {0};
   // Storing the type information for this node.
   ValueKind kind_ { ValueKind::kNull };
   bool is_view_ {false};
-  bool finalised_ {true};
+  bool finalised_ {false};
 
  public:
   // A guard for invalid pointer.
@@ -287,6 +312,7 @@ class ValueImpl {
   void InitializeType(ValueKind kind) {
     NIH_ASSERT_EQ(static_cast<uint8_t>(this->kind_),
                   static_cast<uint8_t>(ValueKind::kNull));
+    NIH_ASSERT(!finalised_) << "You can not change an existing value.";
     this->kind_ = kind;
   }
 
@@ -302,10 +328,58 @@ class ValueImpl {
     return !is_view_ && !finalised_ && (this->IsArray() || this->IsObject());
   }
 
- protected:
-  // explict working memory for non-trivial types.
-  std::vector<ObjectElement, LeakedAllocator<ObjectElement>> object_table_;
-  std::vector<size_t> array_table_;
+  class ArrayTable {
+    bool is_view_ {false};
+    size_t size_;
+    Span<size_t> tree_;
+    std::vector<size_t> table_;
+    size_t offset_;
+
+   public:
+    ArrayTable() = default;
+    ArrayTable(Span<size_t> tree, size_t offset)
+        : is_view_{true}, tree_{tree}, offset_{offset + 1} {
+      size_ = tree_[offset];
+    }
+    size_t& operator[](size_t i) {
+      if (is_view_) {
+        return tree_[offset_ + i];
+      }
+      return table_[i];
+    }
+    size_t size() const {
+      return size_;
+    }
+
+    void resize(size_t n) {
+      NIH_ASSERT(!is_view_);
+      table_.resize(n);
+      size_ = table_.size();
+    }
+    void resize(size_t n, size_t v) {
+      NIH_ASSERT(!is_view_);
+      table_.resize(n, v);
+      size_ = table_.size();
+    }
+    void reserve(size_t n) {
+      NIH_ASSERT(!is_view_);
+      table_.reserve(n);
+    }
+    size_t length() const { return size_; }
+    size_t *data() { return table_.data(); }
+    void push_back(size_t v) {
+      NIH_ASSERT(!is_view_);
+      table_.push_back(v);
+      size_++;
+    }
+  };
+
+  protected :
+      // explict working memory for non-trivial types.
+      std::vector<ObjectElement>
+          object_table_;
+  // std::vector<size_t> array_table_;
+  ArrayTable array_table_;
   StringStorage  string_storage;
 
  protected:
@@ -346,11 +420,7 @@ class ValueImpl {
       this->kind_ = ValueKind::kArray;
       Span<size_t> tree = handler_->Tree().Access();
       size_t table_offset = JsonTypeHandler::GetOffset(tree[self_]);
-      size_t length = tree[table_offset];
-      array_table_.resize(length);
-      auto tree_ptr = table_offset + 1;
-      std::memcpy(array_table_.data(), tree.data() + tree_ptr,
-                  length * sizeof(size_t));
+      array_table_ = ArrayTable(tree, table_offset);
       break;
     }
     case ValueKind::kNull: {
@@ -374,7 +444,7 @@ class ValueImpl {
       break;
     }
     default: {
-      // LOG(FATAL) << "Invalid value type: " << static_cast<uint8_t>(kind_);
+      LOG(FATAL) << "Invalid value type: " << static_cast<uint8_t>(kind_);
       break;
     }
     }
@@ -402,34 +472,33 @@ class ValueImpl {
   }
 
  public:
-   ValueImpl(ValueImpl const &that) // = delete
-       : handler_{that.handler_}, self_{that.self_},
-         kind_{that.kind_}, is_view_{that.is_view_}, finalised_{that.finalised_},
-         object_table_{that.object_table_}, array_table_{that.array_table_} {}
-   ValueImpl(ValueImpl &&that)
-       : handler_{that.handler_}, self_{that.self_}, kind_{that.kind_},
-         is_view_{that.is_view_}, finalised_{that.finalised_},
-         object_table_{std::move(that.object_table_)},
-         array_table_{std::move(that.array_table_)}{
-     that.finalised_ = true;
-   }
+  ValueImpl(ValueImpl const &that) = delete;
+  ValueImpl(ValueImpl &&that)
+      : handler_{that.handler_}, self_{that.self_}, kind_{that.kind_},
+        is_view_{that.is_view_}, finalised_{that.finalised_},
+        object_table_{std::move(that.object_table_)}, array_table_{std::move(
+                                                          that.array_table_)} {
+    that.finalised_ = true;
+  }
 
-   virtual ~ValueImpl() {
-     if (!this->NeedFinalise()) { return; }
-     switch (this->get_type()) {
-     case ValueKind::kObject: {
-       this->EndObject();
-       break;
-     }
-     case ValueKind::kArray: {
-       this->EndArray();
-       break;
-     }
-     default: {
-       break;
-     }
-     }
-   }
+  virtual ~ValueImpl() {
+    if (!this->NeedFinalise()) {
+      return;
+    }
+    switch (this->get_type()) {
+    case ValueKind::kObject: {
+      this->EndObject();
+      break;
+    }
+    case ValueKind::kArray: {
+      this->EndArray();
+      break;
+    }
+    default: {
+      break;
+    }
+    }
+  }
 
    bool IsObject() const { return kind_ == ValueKind::kObject; }
    bool IsArray() const { return kind_ == ValueKind::kArray; }
@@ -450,22 +519,22 @@ class ValueImpl {
      }
   }
 
-  ValueImpl SetTrue() {
+  ValueImpl& SetTrue() {
     InitializeType(ValueKind::kTrue);
     return *this;
   }
 
-  ValueImpl SetFalse() {
+  ValueImpl& SetFalse() {
     InitializeType(ValueKind::kFalse);
     return *this;
   }
 
-  ValueImpl SetNull() {
+  ValueImpl& SetNull() {
     InitializeType(ValueKind::kNull);
     return *this;
   }
 
-  ValueImpl SetString(ConstStringRef string) {
+  ValueImpl& SetString(ConstStringRef string) {
     InitializeType(ValueKind::kString);
     StorageView<size_t> tree_storage = handler_->Tree();
     auto current_tree_pointer = tree_storage.Top();
@@ -514,7 +583,7 @@ class ValueImpl {
   }
 
   /*\brief Set this value to an array with pre-defined length. */
-  ValueImpl SetArray(size_t length) {
+  ValueImpl& SetArray(size_t length) {
     InitializeType(ValueKind::kArray);
     Span<size_t> tree = handler_->Tree().Access();
     tree[self_] = JsonTypeHandler::MakeTypedOffset(kElementEnd,
@@ -522,6 +591,11 @@ class ValueImpl {
     array_table_.resize(length, kElementEnd);
     finalised_ = false;
     return *this;
+  }
+
+  void SizeHint(size_t n) {
+    CheckType(ValueKind::kArray);
+    array_table_.reserve(n);
   }
 
   ValueImpl GetArrayElem(size_t index) {
@@ -542,8 +616,7 @@ class ValueImpl {
     }
   }
 
-  ValueImpl SetArray() {
-    array_table_.reserve(8);
+  ValueImpl& SetArray() {
     this->SetArray(0);
     return *this;
   }
@@ -556,7 +629,7 @@ class ValueImpl {
     return value;
   }
 
-  ValueImpl SetObject() {
+  ValueImpl& SetObject() {
     // initialize the value here.
     InitializeType(ValueKind::kObject);
     auto tree = handler_->Tree().Access();

@@ -276,6 +276,7 @@ TEST(Json_Experimental, Real) {
 
     std::ofstream fout {"dumped.json"};
     fout << str;
+    std::cout << str;
   }
   std::cout << GlobalMonitor::ins().toString();
 }
