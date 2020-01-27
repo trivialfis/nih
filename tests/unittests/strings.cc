@@ -1,5 +1,6 @@
 #include "nih/strings.hh"
 #include "nih/primitives.hh"
+#include <cstddef>
 #include <gtest/gtest.h>
 
 #include <string>
@@ -79,6 +80,21 @@ TEST(Strings, Split) {
     ASSERT_EQ(result.size(), 2);
     ASSERT_EQ(result.front(), "foo");
     ASSERT_EQ(result.back(), "bar");
+  }
+}
+
+TEST(StringRef, Constructor) {
+  {
+    std::string str {"foo-bar"};
+    StringRef ref(str);
+    ASSERT_EQ(ref.size(), str.size());
+    ConstStringRef cref(str);
+    ASSERT_EQ(cref.size(), str.size());
+
+    for (size_t i = 0; i < ref.size(); ++i) {
+      ASSERT_EQ(ref[i], cref[i]);
+      ASSERT_EQ(ref[i], str[i]);
+    }
   }
 }
 

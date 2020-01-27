@@ -113,6 +113,7 @@ class UriScheme {
  public:
   UriScheme() = delete;
   UriScheme(Uri uri) : _uri{uri} {}
+  virtual ~UriScheme() = default;
 
   virtual UriScheme& write(std::string input) = 0;
   virtual UriScheme& write(char* input, size_t size) = 0;
@@ -125,8 +126,8 @@ class UriScheme {
 
 class FileScheme : public UriScheme {
   std::string _path;
-  std::string _flags;
   FILE* _fd;
+  std::string _flags;
   int32_t _borrowed;
 
  public:

@@ -18,6 +18,7 @@
 #ifndef _BASIC_LOGGING_HH_
 #define _BASIC_LOGGING_HH_
 
+#include <cstddef>
 #include <libgen.h>
 
 #include <cinttypes>
@@ -84,10 +85,16 @@ class Log {
   static void reset();
 };
 
+template <size_t S>
+std::string StrBasename(char const (&str)[S]) {
+  char vchar[S];
+  std::memcpy(vchar, str, sizeof(char) * S);
+  return std::string{::basename(vchar)};
+}
+
 }  // namespace nih
 
-
-#define ERROR_FILE_LINE std::string{basename(__FILE__)} + "(" + std::to_string(__LINE__) + "): "
+#define ERROR_FILE_LINE nih::StrBasename(__FILE__) + "(" + std::to_string(__LINE__) + "): "
 
 #if defined(LOG)
 #warning "Undefining macro `LOG`'"
