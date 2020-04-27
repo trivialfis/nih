@@ -33,6 +33,7 @@
 namespace nih {
 
 struct Colorize {
+ private:
   bool _is_tty {false};
 
  public:
@@ -42,7 +43,7 @@ struct Colorize {
     kWhite
   };
 
-  Colorize(UriScheme const* uri) {
+  explicit Colorize(UriScheme const* uri) {
     // _is_tty = isTTY(*uri);
     _is_tty = true;
   }
@@ -327,8 +328,9 @@ class SignalsHandling {
       sigdelset(&action.sa_mask, _posix_signals[i]);
       action.sa_sigaction = &sigHandler;
       int r = sigaction(_posix_signals[i], &action, nullptr);
-      if (r < 0)
+      if (r < 0) {
         _success = false;
+      }
     }
   }
   static void sigHandler(int signo, siginfo_t *info, void *_ctx) {
@@ -340,7 +342,7 @@ class SignalsHandling {
     _exit(EXIT_FAILURE);
   }
   static void handleSignal(int32_t, siginfo_t* info, void* ctx) {
-    ucontext_t *uctx = static_cast<ucontext_t *>(ctx);
+    auto *uctx = static_cast<ucontext_t *>(ctx);
     StackTrace st;
     std::cerr << st.str();
   }
