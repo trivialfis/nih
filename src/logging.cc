@@ -342,7 +342,6 @@ class SignalsHandling {
     _exit(EXIT_FAILURE);
   }
   static void handleSignal(int32_t, siginfo_t* info, void* ctx) {
-    auto *uctx = static_cast<ucontext_t *>(ctx);
     StackTrace st;
     std::cerr << st.str();
   }
