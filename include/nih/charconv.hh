@@ -55,14 +55,14 @@ constexpr uint32_t ShortestDigit10(uint64_t value) {
 // probably with better performance as they are more complicated.
 inline void itoaUnsignedImpl(char* first, uint32_t length, uint64_t value) {
   uint32_t position = length - 1;
-  while (value > Tens(2)) {
+  while (value >= Tens(2)) {
     auto const num = (value % Tens(2)) * 2;
     value /= Tens(2);
     first[position] = kItoaLut[num + 1];
     first[position - 1] = kItoaLut[num];
     position -= 2;
   }
-  if (value > 10) {
+  if (value >= 10) {
     auto const num = value * 2;
     first[0] = kItoaLut[num];
     first[1] = kItoaLut[num + 1];

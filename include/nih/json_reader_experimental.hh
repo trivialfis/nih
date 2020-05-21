@@ -79,9 +79,18 @@ class JsonRecursiveReader {
     }
   }
 
-  void HandleNull(Json* number) { number->SetNull(); }
-  void HandleTrue(Json* t) { t->SetTrue(); }
-  void HandleFalse(Json* f) { f->SetFalse(); }
+  void HandleNull(Json* number) {
+    number->SetNull();
+    cursor_+=4;
+  }
+  void HandleTrue(Json *t) {
+    t->SetTrue();
+    cursor_ += 4;
+  }
+  void HandleFalse(Json *f) {
+    f->SetFalse();
+    cursor_ += 5;
+  }
 
   /*\brief Guess whether parsed value is floating point or integer.  For value
    * produced by nih json this should always be correct as ryu produces `E` in
