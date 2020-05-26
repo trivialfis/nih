@@ -635,7 +635,7 @@ TEST(Span, FirstLast) {
       ASSERT_EQ(first[i], arr[i]);
     }
 
-    EXPECT_ANY_THROW(s.first<-1>());
+    EXPECT_ANY_THROW(s.first<static_cast<size_t>(-1)>());
     EXPECT_ANY_THROW(s.first<17>());
     EXPECT_ANY_THROW(s.first<32>());
   }
@@ -654,7 +654,7 @@ TEST(Span, FirstLast) {
       ASSERT_EQ(last[i], arr[i+12]);
     }
 
-    EXPECT_ANY_THROW(s.last<-1>());
+    EXPECT_ANY_THROW(s.last<static_cast<size_t>(-1)>());
     EXPECT_ANY_THROW(s.last<17>());
     EXPECT_ANY_THROW(s.last<32>());
   }
@@ -718,7 +718,7 @@ TEST(Span, Subspan) {
   EXPECT_ANY_THROW(s1.subspan(-1, 0));
   EXPECT_ANY_THROW(s1.subspan(16, 0));
 
-  EXPECT_ANY_THROW(s1.subspan<-1>());
+  EXPECT_ANY_THROW(s1.subspan<static_cast<size_t>(-1)>());
   EXPECT_ANY_THROW(s1.subspan<16>());
 }
 
