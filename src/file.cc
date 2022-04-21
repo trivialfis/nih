@@ -21,9 +21,9 @@
 #include <unistd.h>
 #endif  // defined(__unix__)
 #include <cstdio>
-#include "nih/errors.hh"
-#include "nih/logging.hh"
-#include "nih/uri.hh"
+#include "nih/errors.h"
+#include "nih/logging.h"
+#include "nih/uri.h"
 
 #include <fstream>
 #include <iostream>

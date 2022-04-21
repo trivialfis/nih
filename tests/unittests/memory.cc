@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "nih/memory.hh"
+#include "nih/memory.h"
 
 namespace nih {
 TEST(MakeUnique, Basic) {

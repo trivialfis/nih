@@ -16,7 +16,7 @@
  * along with NIH.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "nih/memory.hh"
+#include "nih/memory.h"
 #include "nih/strings.hh"
 
 namespace nih {

@@ -5,12 +5,19 @@ project(NIH
 
 list(APPEND CMAKE_MODULE_PATH "${NIH_SOURCE_DIR}/cmake/modules")
 
-option(ENABLE_TESTS "Enable GTest" ON)
-option(ENABLE_SANITIZERS "Enable sanitizers" OFF)
+option(NIH_ENABLE_TESTS "Enable GTest" ON)
+option(NIH_ENABLE_SANITIZERS "Enable sanitizers" OFF)
 set(ENABLED_SANITIZERS "address" CACHE STRING
   "Semicolon separated list of sanitizer names. E.g 'address;leak'. Supported sanitizers are
 address, leak and thread.")
 option(ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
+option(NIH_COMPILE_COLORED_OUTPUT "Enable colored compiler output." ON)
+
+if (NIH_COMPILE_COLORED_OUTPUT AND (CMAKE_GENERATOR STREQUAL "Ninja") AND
+    ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR
+      (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")))
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
+endif()
 
 if (ENABLE_SANITIZERS)
   include(cmake/sanitizer.cmake)
@@ -27,7 +34,7 @@ add_library(nih SHARED ${NIH_SOURCES})
 add_library(nih::nih ALIAS nih)
 set_target_properties(
   nih PROPERTIES
-  CXX_STANDARD 11
+  CXX_STANDARD 17
   CXX_STANDARD_REQUIRED ON)
 target_include_directories(nih
   PRIVATE
@@ -37,10 +44,16 @@ target_include_directories(nih
 
 include(GNUInstallDirs)
 file(GLOB_RECURSE NIH_INSTALL_HEADERS "include/nih/*.hh")
+file(GLOB_RECURSE NIH_INSTALL_HEADERS_H "include/nih/*.h")
 install(FILES
   ${NIH_INSTALL_HEADERS}
   DESTINATION
   include/nih/)
+install(FILES
+  ${NIH_INSTALL_HEADERS_H}
+  DESTINATION
+  include/nih/)
+
 
 install(EXPORT nih-targets
   FILE nih-targets.cmake
@@ -80,11 +93,12 @@ else()
   message(STATUS "clang-tidy found: ${CLANG_TIDY_EXE}")
 endif()
 
-if (ENABLE_TESTS)
+if (NIH_ENABLE_TESTS)
   find_package(GTest REQUIRED)
   file(GLOB_RECURSE TEST_SOURCES "tests/*.cc")
+  file(GLOB_RECURSE UNITTEST_SOURCES "tests/unittests/*.cc")
 
-  add_executable(test-nih ${TEST_SOURCES})
+  add_executable(test-nih ${TEST_SOURCES} ${UNITTEST_SOURCES})
   target_include_directories(test-nih
     PRIVATE "${CMAKE_CURRENT_LIST_DIR}/include"
     PRIVATE "${GTEST_INCLUDE_DIRS}"
@@ -94,7 +108,7 @@ if (ENABLE_TESTS)
     nih::nih)
   set_target_properties(
     test-nih PROPERTIES
-    CXX_STANDARD 11
+    CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON)
   if (ENABLE_CLANG_TIDY)
     set_target_properties(
@@ -104,4 +118,4 @@ if (ENABLE_TESTS)
 
   enable_testing()
   add_test(TestNIH test-nih)
-endif (ENABLE_TESTS)
+endif (NIH_ENABLE_TESTS)

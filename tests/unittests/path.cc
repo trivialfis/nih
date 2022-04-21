@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <nih/path.hh>
+#include <nih/path.h>
 
 namespace nih {
 TEST(Path, Join) {

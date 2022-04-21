@@ -2,8 +2,8 @@
 #include <cstdio>
 #include <fstream>
 
-#include "nih/logging.hh"
-#include "nih/uri.hh"
+#include "nih/logging.h"
+#include "nih/uri.h"
 
 namespace nih {
 

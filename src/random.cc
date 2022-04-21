@@ -16,7 +16,7 @@
  * along with NIH.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <random>
-#include "nih/random.hh"
+#include "nih/random.h"
 
 namespace nih {
 

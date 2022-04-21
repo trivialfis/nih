@@ -17,10 +17,10 @@
  */
 #include <map>
 
-#include "nih/errors.hh"
-#include "nih/uri.hh"
+#include "nih/errors.h"
+#include "nih/uri.h"
 #include "nih/strings.hh"
-#include "nih/logging.hh"
+#include "nih/logging.h"
 
 namespace nih {
 

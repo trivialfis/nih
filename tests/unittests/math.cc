@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "nih/primitives.hh"
-#include "nih/math.hh"
+#include "nih/math.h"
 
 namespace nih {
 namespace math {

@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "nih/uri.hh"
+#include "nih/uri.h"
 
 namespace nih {
 

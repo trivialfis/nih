@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "nih/range.hh"
+#include "nih/range.h"
 
 namespace nih {
 

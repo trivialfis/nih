@@ -29,7 +29,7 @@
 #ifndef XGBOOST_SPAN_H_
 #define XGBOOST_SPAN_H_
 
-#include <nih/logging.hh>  // CHECK
+#include <nih/logging.h>  // CHECK
 
 #include <cinttypes>          // size_t
 #include <limits>             // numeric_limits

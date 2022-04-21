@@ -22,7 +22,7 @@
 #include <string>
 
 #include "nih/primitives.hh"
-#include <nih/span.hh>
+#include <nih/span.h>
 
 namespace nih {
 
@@ -111,68 +111,6 @@ template <>
 inline size_t str2n<size_t>(std::string const& s) {
   return std::stoull(s);
 }
-
-/*! \brief A mutable string_view. */
-template <typename CharT>
-class StringRefImpl {
-public:
-  using pointer = CharT *;              // NOLINT
-  using iterator = pointer;             // NOLINT
-  using const_iterator = pointer const; // NOLINT
-
-  using value_type = CharT;  // NOLINT
-  using traits_type = std::char_traits<CharT>;  // NOLINT
-  using size_type = std::size_t;                // NOLINT
-  using difference_type = std::ptrdiff_t;       // NOLINT
-
-  using reference = CharT&;  // NOLINT
-  using const_reference = CharT const&;  // NOLINT
-
- private:
-  CharT* chars_;
-  size_t size_;
-
- public:
-  StringRefImpl() : chars_{nullptr}, size_{0} {}
-  StringRefImpl(std::string& str) : chars_{&str[0]}, size_{str.size()} {} // NOLINT
-  StringRefImpl(std::string const& str) : chars_{str.data()}, size_{str.size()} {} // NOLINT
-  StringRefImpl(CharT* chars, size_t size) : chars_{chars}, size_{size} {}
-  StringRefImpl(CharT* chars) : chars_{chars}, size_{traits_type::length(chars)} {} // NOLINT
-
-  const_iterator cbegin() const { return chars_; }  // NOLINT
-  const_iterator cend()   const { return chars_ + size(); }  // NOLINT
-
-  iterator begin() { return chars_; }         // NOLINT
-  iterator end() { return chars_ + size(); }  // NOLINT
-
-  pointer data() const { return chars_; }     // NOLINT
-
-  size_t size() const { return size_; };      // NOLINT
-  CharT operator[](size_t i) const { return chars_[i]; }
-
-  bool operator==(StringRefImpl const &that) {
-    return Span<CharT>{this, size_} == Span<CharT> {that.data(), that.size()};
-  }
-  bool operator!=(StringRefImpl const &that) {
-    return !(that == *this);
-  }
-  bool operator<(StringRefImpl const &that) {
-    return Span<CharT>{chars_, size_} < Span<CharT> {that.data(), that.size()};
-  }
-  bool operator>(StringRefImpl const &that) {
-    return Span<CharT>{chars_, size_} > Span<CharT> {that.data(), that.size()};
-  }
-  bool operator<=(StringRefImpl const &that) {
-    return Span<CharT>{chars_, size_} <= Span<CharT> {that.data(), that.size()};
-  }
-  bool operator>=(StringRefImpl const &that) {
-    return Span<CharT>{chars_, size_} >= Span<CharT> {that.data(), that.size()};
-  }
-};
-
-using StringRef = StringRefImpl<std::string::value_type>;
-using ConstStringRef = StringRefImpl<std::string::value_type const>;
-
 }  // namespace nih
 
 #endif  // _STRINGS_HH_

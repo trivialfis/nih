@@ -18,7 +18,7 @@
 #include <cxxabi.h>
 #include <execinfo.h>
 
-#include "nih/errors.hh"
+#include "nih/errors.h"
 
 namespace nih {
 

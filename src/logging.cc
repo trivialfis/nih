@@ -24,11 +24,11 @@
 #include "nih/C/logging.h"
 #include "api_errors.h"
 
-#include "nih/errors.hh"
-#include "nih/logging.hh"
-#include "nih/threads.hh"
-#include "nih/memory.hh"
-#include "nih/uri.hh"
+#include "nih/errors.h"
+#include "nih/logging.h"
+#include "nih/threads.h"
+#include "nih/memory.h"
+#include "nih/uri.h"
 
 namespace nih {
 

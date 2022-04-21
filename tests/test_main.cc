@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "nih/random.hh"
+#include "nih/random.h"
 
 int main(int argc, char ** argv) {
   std::unique_ptr<nih::RandomDeviceImpl> p_dev{ new nih::SimpleLCG };

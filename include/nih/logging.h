@@ -27,9 +27,9 @@
 #include <memory>
 #include <sstream>
 
-#include <nih/config.hh>
-#include <nih/errors.hh>
-#include <nih/uri.hh>
+#include <nih/config.h>
+#include <nih/errors.h>
+#include <nih/uri.h>
 
 namespace nih {
 

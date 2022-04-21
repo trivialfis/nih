@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "nih/errors.hh"
+#include "nih/errors.h"
 
 namespace nih {
 

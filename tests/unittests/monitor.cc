@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 
-#include <nih/monitor.hh>
+#include <nih/monitor.h>
 
 namespace nih {
 
@@ -15,11 +15,9 @@ TEST(Monitor, Timer) {
 }
 
 TEST(Monitor, GlobalMonitor) {
-  {
-    FUNC_TIMER(testing);
-  }
+  { FUNC_TIMER(testing); }
   std::string str = GlobalMonitor::ins().toString();
   ASSERT_NE(str.find("testing"), std::string::npos);
 }
 
-}  // namespace nih
+} // namespace nih

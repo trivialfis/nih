@@ -18,7 +18,7 @@
 #ifndef _NIH_FILE_HH_
 #define _NIH_FILE_HH_
 
-#include <nih/uri.hh>
+#include <nih/uri.h>
 
 namespace nih {
 std::string loadSequentialFile(Uri fname);

@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-#include <nih/span.hh>
+#include <nih/span.h>
 
 namespace nih {
 template <typename Iter>

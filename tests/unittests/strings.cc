@@ -1,4 +1,5 @@
 #include "nih/strings.hh"
+#include "nih/StringRef.h"
 #include "nih/primitives.hh"
 #include <cstddef>
 #include <gtest/gtest.h>

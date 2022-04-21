@@ -18,8 +18,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <numeric>
-#include "nih/path.hh"
-#include "nih/logging.hh"
+#include "nih/path.h"
+#include "nih/logging.h"
 #include "nih/strings.hh"
 
 namespace nih {

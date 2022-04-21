@@ -21,7 +21,7 @@
 #include <cinttypes>
 #include <memory>
 #include <nih/singleton.hh>
-#include <nih/logging.hh>
+#include <nih/logging.h>
 
 namespace nih {
 

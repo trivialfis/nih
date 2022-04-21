@@ -1,5 +1,5 @@
 #include <type_traits>
-#include <nih/functional.hh>
+#include <nih/functional.h>
 
 namespace nih {
 template <typename L, typename R, typename Op>
