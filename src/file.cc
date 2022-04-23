@@ -21,12 +21,13 @@
 #include <unistd.h>
 #endif  // defined(__unix__)
 #include <cstdio>
-#include "nih/errors.h"
-#include "nih/logging.h"
-#include "nih/uri.h"
-
+#include <cstring>
 #include <fstream>
 #include <iostream>
+
+#include "nih/Logging.h"
+#include "nih/errors.h"
+#include "nih/uri.h"
 
 namespace nih {
 
@@ -74,7 +75,7 @@ UriScheme& FileScheme::read(std::string* output, size_t size) {
 }
 
 UriScheme& FileScheme::read(char* output, size_t size) {
-  fread(output, size, 1, _fd);
+  NIH_ASSERT_EQ(fread(output, size, 1, _fd), size);
   return *this;
 }
 

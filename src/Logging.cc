@@ -12,12 +12,14 @@
  * permissions and limitations under the License.
  *
  */
-#include <cxxabi.h>   // demangle
+#include "nih/Logging.h"
+
+#include <cxxabi.h>    // demangle
 #include <execinfo.h>  // backtrace
 
-#include "nih/Logging.h"
-#include "nih/json.h"
 #include "nih/Intrinsics.h"
+#include "nih/errors.h"
+#include "nih/json.h"
 
 namespace nih {
 
@@ -45,7 +47,7 @@ void Logger::Stream::defaultHandler(char const *msg) {
 }
 
 Logger::Stream::~Stream() noexcept(false) {
-  if (TS_UNLIKELY(!_ignore)) {
+  if (NIH_UNLIKELY(!_ignore)) {
     auto const& str = _ss.str();
 
     Json msg {Object{}};

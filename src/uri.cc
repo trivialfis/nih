@@ -20,7 +20,7 @@
 #include <map>
 
 #include "nih/errors.h"
-#include "nih/logging.h"
+#include "nih/Logging.h"
 #include "nih/strings.hh"
 
 namespace nih {

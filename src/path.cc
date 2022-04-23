@@ -19,23 +19,23 @@
 #include <sys/stat.h>
 #include <numeric>
 #include "nih/path.h"
-#include "nih/logging.h"
+#include "nih/Logging.h"
 #include "nih/strings.hh"
 
 namespace nih {
 Path Path::join(Path const& lhs, Path const& rhs) {
   auto append_dir = [](Path const& in) {
-                      Path ret;
-                      if (in._path.size() > 0 && in._path.back() == '/') {
-                        ret._path = in._path;
-                      } else if (in._path.size() > 0) {
-                        ret._path = in._path + '/';
-                      } else {
-                        // empty path, do nothing.
-                        ret._path = in._path;
-                      }
-                      return ret;
-                    };
+    Path ret;
+    if (in._path.size() > 0 && in._path.back() == '/') {
+      ret._path = in._path;
+    } else if (in._path.size() > 0) {
+      ret._path = in._path + '/';
+    } else {
+      // empty path, do nothing.
+      ret._path = in._path;
+    }
+    return ret;
+  };
   Path ret;
   bool const left_ends_delimiter = lhs._path.size() > 0 && lhs._path.back() == '/';
   bool const right_begs_delimiter = rhs._path.size() > 0 && rhs._path.front() == '/';
@@ -54,8 +54,8 @@ Path Path::join(Path const& lhs, Path const& rhs) {
 Path Path::curdir() {
   char buff[FILENAME_MAX];
   auto ptr = getcwd(buff, FILENAME_MAX);
-  NIH_ASSERT(ptr) << std::string{strerror(errno)};
-  Path ret {buff};
+  NIH_ASSERT_T(ptr);
+  Path ret{buff};
   return ret;
 }
 

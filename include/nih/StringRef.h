@@ -1,7 +1,9 @@
 #ifndef STRING_REF_H_
 #define STRING_REF_H_
 
-#include "./span.h"
+#include <nih/span.h>
+
+#include <ostream>
 #include <string>
 
 namespace nih {

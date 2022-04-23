@@ -29,10 +29,11 @@
 #ifndef XGBOOST_SPAN_H_
 #define XGBOOST_SPAN_H_
 
-#include <nih/logging.h>  // CHECK
+#include <nih/Intrinsics.h>
 
-#include <cinttypes>          // size_t
-#include <limits>             // numeric_limits
+#include <cinttypes>  // size_t
+#include <iterator>   // std::random_access_iterator_tag
+#include <limits>     // numeric_limits
 #include <type_traits>
 
 /*!
@@ -66,7 +67,7 @@
 #endif  // defined(_MSC_VER) && _MSC_VER < 1910
 
 namespace nih {
-#define SPAN_CHECK NIH_ASSERT
+#define SPAN_CHECK(cond) (NIH_UNLIKELY(cond) ? static_cast<void>(0) : std::terminate())
 
 namespace detail {
 /*!
@@ -75,15 +76,17 @@ namespace detail {
  *   represent ptrdiff_t, which is just int64_t. So we make it determinstic
  *   here.
  */
-using ptrdiff_t = typename std::conditional<std::is_same<std::ptrdiff_t, std::int64_t>::value, // NOLINT
-                                            std::ptrdiff_t, std::int64_t>::type;
+using ptrdiff_t = typename std::conditional<
+    std::is_same<std::ptrdiff_t, std::int64_t>::value,  // NOLINT
+    std::ptrdiff_t, std::int64_t>::type;
 }  // namespace detail
 
 #if defined(_MSC_VER) && _MSC_VER < 1910
-constexpr const std::size_t
-dynamic_extent = std::numeric_limits<std::size_t>::max();  // NOLINT
+constexpr const std::size_t dynamic_extent =
+    std::numeric_limits<std::size_t>::max();  // NOLINT
 #else
-constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();  // NOLINT
+constexpr std::size_t dynamic_extent =
+    std::numeric_limits<std::size_t>::max();  // NOLINT
 #endif  // defined(_MSC_VER) && _MSC_VER < 1910
 
 enum class byte : unsigned char {};  // NOLINT
@@ -98,43 +101,41 @@ class SpanIterator {
   using ElementType = typename SpanType::element_type;
 
  public:
-  using iterator_category = std::random_access_iterator_tag;      // NOLINT
-  using value_type = typename SpanType::value_type;  // NOLINT
-  using difference_type = detail::ptrdiff_t;             // NOLINT
+  using iterator_category = std::random_access_iterator_tag;  // NOLINT
+  using value_type = typename SpanType::value_type;           // NOLINT
+  using difference_type = detail::ptrdiff_t;                  // NOLINT
 
-  using reference = typename std::conditional<                    // NOLINT
-    IsConst, const ElementType, ElementType>::type&;
-  using pointer = typename std::add_pointer<reference>::type;     // NOLINT
+  using reference = typename std::conditional<  // NOLINT
+      IsConst, const ElementType, ElementType>::type&;
+  using pointer = typename std::add_pointer<reference>::type;  // NOLINT
 
-  constexpr SpanIterator() : span_{nullptr}, index_{0} {}
+  constexpr SpanIterator() = default;
 
-  constexpr SpanIterator(
-      const SpanType* _span,
-      typename SpanType::index_type _idx) __span_noexcept :
-                                           span_(_span), index_(_idx) {}
+  constexpr SpanIterator(const SpanType* _span,
+                         typename SpanType::index_type _idx) __span_noexcept
+      : _span(_span),
+        _index(_idx) {}
 
   friend SpanIterator<SpanType, true>;
   template <bool B, typename std::enable_if<!B && IsConst>::type* = nullptr>
-  constexpr SpanIterator(                         // NOLINT
+  constexpr SpanIterator(  // NOLINT
       const SpanIterator<SpanType, B>& other_) __span_noexcept
-      : SpanIterator(other_.span_, other_.index_) {}
+      : SpanIterator(other_._span, other_._index) {}
 
   reference operator*() const {
-    SPAN_CHECK(index_ < span_->size());
-    return *(span_->data() + index_);
+    SPAN_CHECK(_index < _span->size());
+    return *(_span->data() + _index);
   }
-  reference operator[](difference_type n) const {
-    return *(*this + n);
-  }
+  reference operator[](difference_type n) const { return *(*this + n); }
 
   pointer operator->() const {
-    SPAN_CHECK(index_ != span_->size());
-    return span_->data() + index_;
+    SPAN_CHECK(_index != _span->size());
+    return _span->data() + _index;
   }
   // prefix
   SpanIterator& operator++() {
-    SPAN_CHECK(index_ != span_->size());
-    index_++;
+    SPAN_CHECK(_index != _span->size());
+    _index++;
     return *this;
   }
   // postfix
@@ -145,8 +146,8 @@ class SpanIterator {
   }
 
   SpanIterator& operator--() {
-    SPAN_CHECK(index_ != 0 && index_ <= span_->size());
-    index_--;
+    SPAN_CHECK(_index != 0 && _index <= _span->size());
+    _index--;
     return *this;
   }
 
@@ -162,14 +163,14 @@ class SpanIterator {
   }
 
   SpanIterator& operator+=(difference_type n) {
-    SPAN_CHECK((index_ + n) <= span_->size());
-    index_ += n;
+    SPAN_CHECK((_index + n) <= _span->size());
+    _index += n;
     return *this;
   }
 
   difference_type operator-(SpanIterator rhs) const {
-    SPAN_CHECK(span_ == rhs.span_);
-    return index_ - rhs.index_;
+    SPAN_CHECK(_span == rhs._span);
+    return _index - rhs._index;
   }
 
   SpanIterator operator-(difference_type n) const {
@@ -177,46 +178,43 @@ class SpanIterator {
     return ret -= n;
   }
 
-  SpanIterator& operator-=(difference_type n) {
-    return *this += -n;
-  }
+  SpanIterator& operator-=(difference_type n) { return *this += -n; }
 
   // friends
-  constexpr friend bool operator==(
-      SpanIterator _lhs, SpanIterator _rhs) __span_noexcept {
-    return _lhs.span_ == _rhs.span_ && _lhs.index_ == _rhs.index_;
+  constexpr friend bool operator==(SpanIterator _lhs,
+                                   SpanIterator _rhs) __span_noexcept {
+    return _lhs._span == _rhs._span && _lhs._index == _rhs._index;
   }
 
-  constexpr friend bool operator!=(
-      SpanIterator _lhs, SpanIterator _rhs) __span_noexcept {
+  constexpr friend bool operator!=(SpanIterator _lhs,
+                                   SpanIterator _rhs) __span_noexcept {
     return !(_lhs == _rhs);
   }
 
-  constexpr friend bool operator<(
-      SpanIterator _lhs, SpanIterator _rhs) __span_noexcept {
-    return _lhs.index_ < _rhs.index_;
+  constexpr friend bool operator<(SpanIterator _lhs,
+                                  SpanIterator _rhs) __span_noexcept {
+    return _lhs._index < _rhs._index;
   }
 
-  constexpr friend bool operator<=(
-      SpanIterator _lhs, SpanIterator _rhs) __span_noexcept {
+  constexpr friend bool operator<=(SpanIterator _lhs,
+                                   SpanIterator _rhs) __span_noexcept {
     return !(_rhs < _lhs);
   }
 
-  constexpr friend bool operator>(
-      SpanIterator _lhs, SpanIterator _rhs) __span_noexcept {
+  constexpr friend bool operator>(SpanIterator _lhs,
+                                  SpanIterator _rhs) __span_noexcept {
     return _rhs < _lhs;
   }
 
-  constexpr friend bool operator>=(
-      SpanIterator _lhs, SpanIterator _rhs) __span_noexcept {
+  constexpr friend bool operator>=(SpanIterator _lhs,
+                                   SpanIterator _rhs) __span_noexcept {
     return !(_rhs > _lhs);
   }
 
  protected:
-  const SpanType *span_;
-  typename SpanType::index_type index_;
+  const SpanType* _span{nullptr};
+  typename SpanType::index_type _index{0};
 };
-
 
 // It's tempting to use constexpr instead of structs to do the following meta
 // programming. But remember that we are supporting MSVC 2013 here.
@@ -229,27 +227,31 @@ class SpanIterator {
  *   - Otherwise, dynamic_extent.
  */
 template <std::size_t Extent, std::size_t Offset, std::size_t Count>
-struct ExtentValue : public std::integral_constant<
-  std::size_t, Count != dynamic_extent ?
-  Count : (Extent != dynamic_extent ? Extent - Offset : Extent)> {};
+struct ExtentValue
+    : public std::integral_constant<
+          std::size_t, Count != dynamic_extent
+                           ? Count
+                           : (Extent != dynamic_extent ? Extent - Offset : Extent)> {};
 
 /*!
  * If N is dynamic_extent, the extent of the returned span E is also
  * dynamic_extent; otherwise it is std::size_t(sizeof(T)) * N.
  */
 template <typename T, std::size_t Extent>
-struct ExtentAsBytesValue : public std::integral_constant<
-  std::size_t,
-  Extent == dynamic_extent ?
-  Extent : sizeof(T) * Extent> {};
+struct ExtentAsBytesValue
+    : public std::integral_constant<
+          std::size_t, Extent == dynamic_extent ? Extent : sizeof(T) * Extent> {};
 
 template <std::size_t From, std::size_t To>
-struct IsAllowedExtentConversion : public std::integral_constant<
-  bool, From == To || From == dynamic_extent || To == dynamic_extent> {};
+struct IsAllowedExtentConversion
+    : public std::integral_constant<bool, From == To || From == dynamic_extent ||
+                                              To == dynamic_extent> {};
 
 template <class From, class To>
-struct IsAllowedElementTypeConversion : public std::integral_constant<
-  bool, std::is_convertible<From(*)[], To(*)[]>::value> {};
+struct IsAllowedElementTypeConversion
+    : public std::integral_constant<bool,
+                                    std::is_convertible<From (*)[], To (*)[]>::value> {
+};
 
 template <class T>
 struct IsSpanOracle : std::false_type {};
@@ -263,23 +265,18 @@ struct IsSpan : public IsSpanOracle<typename std::remove_cv<T>::type> {};
 // Re-implement std algorithms here to adopt CUDA.
 template <typename T>
 struct Less {
-  constexpr bool operator()(const T& _x, const T& _y) const {
-    return _x < _y;
-  }
+  constexpr bool operator()(const T& _x, const T& _y) const { return _x < _y; }
 };
 
 template <typename T>
 struct Greater {
-  constexpr bool operator()(const T& _x, const T& _y) const {
-    return _x > _y;
-  }
+  constexpr bool operator()(const T& _x, const T& _y) const { return _x > _y; }
 };
 
 template <class InputIt1, class InputIt2,
-          class Compare =
-          detail::Less<decltype(std::declval<InputIt1>().operator*())>>
-bool LexicographicalCompare(InputIt1 first1, InputIt1 last1,
-                                            InputIt2 first2, InputIt2 last2) {
+          class Compare = detail::Less<decltype(std::declval<InputIt1>().operator*())>>
+bool LexicographicalCompare(InputIt1 first1, InputIt1 last1, InputIt2 first2,
+                            InputIt2 last2) {
   Compare comp;
   for (; first1 != last1 && first2 != last2; ++first1, ++first2) {
     if (comp(*first1, *first2)) {
@@ -293,7 +290,6 @@ bool LexicographicalCompare(InputIt1 first1, InputIt1 last1,
 }
 
 }  // namespace detail
-
 
 /*!
  * \brief span class implementation, based on ISO++20 span<T>. The interface
@@ -312,61 +308,66 @@ class Span {
   using iterator = detail::SpanIterator<Span<T, Extent>, false>;             // NOLINT
   using const_iterator = const detail::SpanIterator<Span<T, Extent>, true>;  // NOLINT
   using reverse_iterator = detail::SpanIterator<Span<T, Extent>, false>;     // NOLINT
-  using const_reverse_iterator = const detail::SpanIterator<Span<T, Extent>, true>;  // NOLINT
+  using const_reverse_iterator =
+      const detail::SpanIterator<Span<T, Extent>, true>;  // NOLINT
 
   // constructors
 
   constexpr Span() __span_noexcept : size_(0), data_(nullptr) {}
 
-  Span(pointer _ptr, index_type _count) :
-      size_(_count), data_(_ptr) {
+  Span(pointer _ptr, index_type _count) : size_(_count), data_(_ptr) {
     SPAN_CHECK(!(Extent != dynamic_extent && _count != Extent));
     SPAN_CHECK(_ptr || _count == 0);
   }
 
-  Span(pointer _first, pointer _last) :
-      size_(_last - _first), data_(_first) {
+  Span(pointer _first, pointer _last) : size_(_last - _first), data_(_first) {
     SPAN_CHECK(data_ || size_ == 0);
   }
 
   template <std::size_t N>
   constexpr Span(element_type (&arr)[N])  // NOLINT
-      __span_noexcept : size_(N), data_(&arr[0]) {}
+      __span_noexcept : size_(N),
+                        data_(&arr[0]) {}
 
-  template <class Container,
-            class = typename std::enable_if<
-              !std::is_const<element_type>::value && !detail::IsSpan<Container>::value &&
-              std::is_convertible<typename Container::pointer,
-                                  pointer>::value &&
-              std::is_convertible<
-                typename Container::pointer,
-                decltype(std::declval<Container>().data())>::value>::type>
-  Span(Container& _cont) :  // NOLINT
-      size_(_cont.size()), data_(_cont.data()) {
-    static_assert(!detail::IsSpan<Container>::value, "Wrong constructor of Span is called.");
+  template <
+      class Container,
+      class = typename std::enable_if<
+          !std::is_const<element_type>::value && !detail::IsSpan<Container>::value &&
+          std::is_convertible<typename Container::pointer, pointer>::value &&
+          std::is_convertible<typename Container::pointer,
+                              decltype(std::declval<Container>().data())>::value>::type>
+  Span(Container& _cont)
+      :  // NOLINT
+        size_(_cont.size()),
+        data_(_cont.data()) {
+    static_assert(!detail::IsSpan<Container>::value,
+                  "Wrong constructor of Span is called.");
   }
 
-  template <class Container,
-            class = typename std::enable_if<
-              std::is_const<element_type>::value && !detail::IsSpan<Container>::value &&
-              std::is_convertible<typename Container::pointer, pointer>::value &&
-              std::is_convertible<
-                typename Container::pointer,
-                decltype(std::declval<Container>().data())>::value>::type>
-  Span(const Container& _cont) : size_(_cont.size()),  // NOLINT
-                                 data_(_cont.data()) {
-    static_assert(!detail::IsSpan<Container>::value, "Wrong constructor of Span is called.");
+  template <
+      class Container,
+      class = typename std::enable_if<
+          std::is_const<element_type>::value && !detail::IsSpan<Container>::value &&
+          std::is_convertible<typename Container::pointer, pointer>::value &&
+          std::is_convertible<typename Container::pointer,
+                              decltype(std::declval<Container>().data())>::value>::type>
+  Span(const Container& _cont)
+      : size_(_cont.size()),  // NOLINT
+        data_(_cont.data()) {
+    static_assert(!detail::IsSpan<Container>::value,
+                  "Wrong constructor of Span is called.");
   }
 
   template <class U, std::size_t OtherExtent,
             class = typename std::enable_if<
-              detail::IsAllowedElementTypeConversion<U, T>::value &&
-              detail::IsAllowedExtentConversion<OtherExtent, Extent>::value>>
-  constexpr Span(const Span<U, OtherExtent>& _other)   // NOLINT
-      __span_noexcept : size_(_other.size()), data_(_other.data()) {}
+                detail::IsAllowedElementTypeConversion<U, T>::value &&
+                detail::IsAllowedExtentConversion<OtherExtent, Extent>::value>>
+  constexpr Span(const Span<U, OtherExtent>& _other)  // NOLINT
+      __span_noexcept : size_(_other.size()),
+                        data_(_other.data()) {}
 
-  constexpr Span(const Span& _other)
-      __span_noexcept : size_(_other.size()), data_(_other.data()) {}
+  constexpr Span(const Span& _other) __span_noexcept : size_(_other.size()),
+                                                       data_(_other.data()) {}
 
   Span& operator=(const Span& _other) __span_noexcept {
     size_ = _other.size();
@@ -374,13 +375,13 @@ class Span {
     return *this;
   }
 
-  ~Span() __span_noexcept {};  // NOLINT
+  ~Span() __span_noexcept{};  // NOLINT
 
   constexpr iterator begin() const __span_noexcept {  // NOLINT
     return {this, 0};
   }
 
-  constexpr iterator end() const __span_noexcept {    // NOLINT
+  constexpr iterator end() const __span_noexcept {  // NOLINT
     return {this, size()};
   }
 
@@ -388,7 +389,7 @@ class Span {
     return {this, 0};
   }
 
-  constexpr const_iterator cend() const __span_noexcept {    // NOLINT
+  constexpr const_iterator cend() const __span_noexcept {  // NOLINT
     return {this, size()};
   }
 
@@ -396,7 +397,7 @@ class Span {
     return reverse_iterator{end()};
   }
 
-  constexpr reverse_iterator rend() const __span_noexcept {    // NOLINT
+  constexpr reverse_iterator rend() const __span_noexcept {  // NOLINT
     return reverse_iterator{begin()};
   }
 
@@ -404,30 +405,24 @@ class Span {
     return const_reverse_iterator{cend()};
   }
 
-  constexpr const_reverse_iterator crend() const __span_noexcept {    // NOLINT
+  constexpr const_reverse_iterator crend() const __span_noexcept {  // NOLINT
     return const_reverse_iterator{cbegin()};
   }
 
   // element access
 
-  reference front() const {
-    return (*this)[0];
-  }
+  reference front() const { return (*this)[0]; }
 
-  reference back() const {
-    return (*this)[size() - 1];
-  }
+  reference back() const { return (*this)[size() - 1]; }
 
   reference operator[](index_type _idx) const {
     SPAN_CHECK(_idx < size());
     return data()[_idx];
   }
 
-  reference operator()(index_type _idx) const {
-    return this->operator[](_idx);
-  }
+  reference operator()(index_type _idx) const { return this->operator[](_idx); }
 
-  constexpr pointer data() const __span_noexcept {   // NOLINT
+  constexpr pointer data() const __span_noexcept {  // NOLINT
     return data_;
   }
 
@@ -474,9 +469,8 @@ class Span {
    */
   template <std::size_t Offset,
             std::size_t Count = dynamic_extent>
-  auto subspan() const ->                   // NOLINT
-      Span<element_type,
-           detail::ExtentValue<Extent, Offset, Count>::value> {
+  auto subspan() const ->  // NOLINT
+      Span<element_type, detail::ExtentValue<Extent, Offset, Count>::value> {
     SPAN_CHECK(Offset < size() || size() == 0);
     SPAN_CHECK(Count == dynamic_extent || (Offset + Count <= size()));
 
@@ -484,13 +478,11 @@ class Span {
   }
 
   Span<element_type, dynamic_extent> subspan(  // NOLINT
-      index_type _offset,
-      index_type _count = dynamic_extent) const {
+      index_type _offset, index_type _count = dynamic_extent) const {
     SPAN_CHECK(_offset < size() || size() == 0);
     SPAN_CHECK((_count == dynamic_extent) || (_offset + _count <= size()));
 
-    return {data() + _offset, _count ==
-            dynamic_extent ? size() - _offset : _count};
+    return {data() + _offset, _count == dynamic_extent ? size() - _offset : _count};
   }
 
  private:
@@ -519,8 +511,7 @@ constexpr bool operator!=(Span<T, X> l, Span<U, Y> r) {
 
 template <class T, std::size_t X, class U, std::size_t Y>
 constexpr bool operator<(Span<T, X> l, Span<U, Y> r) {
-  return detail::LexicographicalCompare(l.begin(), l.end(),
-                                        r.begin(), r.end());
+  return detail::LexicographicalCompare(l.begin(), l.end(), r.begin(), r.end());
 }
 
 template <class T, std::size_t X, class U, std::size_t Y>
@@ -531,9 +522,9 @@ constexpr bool operator<=(Span<T, X> l, Span<U, Y> r) {
 template <class T, std::size_t X, class U, std::size_t Y>
 constexpr bool operator>(Span<T, X> l, Span<U, Y> r) {
   return detail::LexicographicalCompare<
-    typename Span<T, X>::iterator, typename Span<U, Y>::iterator,
-    detail::Greater<typename Span<T, X>::element_type>>(l.begin(), l.end(),
-                                                        r.begin(), r.end());
+      typename Span<T, X>::iterator, typename Span<U, Y>::iterator,
+      detail::Greater<typename Span<T, X>::element_type>>(l.begin(), l.end(), r.begin(),
+                                                          r.end());
 }
 
 template <class T, std::size_t X, class U, std::size_t Y>
@@ -542,20 +533,20 @@ constexpr bool operator>=(Span<T, X> l, Span<U, Y> r) {
 }
 
 template <class T, std::size_t E>
-auto as_bytes(Span<T, E> s) __span_noexcept ->           // NOLINT
+auto as_bytes(Span<T, E> s) __span_noexcept->  // NOLINT
     Span<const byte, detail::ExtentAsBytesValue<T, E>::value> {
   return {reinterpret_cast<const byte*>(s.data()), s.size_bytes()};
 }
 
 template <class T, std::size_t E>
-auto as_writable_bytes(Span<T, E> s) __span_noexcept ->  // NOLINT
+auto as_writable_bytes(Span<T, E> s) __span_noexcept->  // NOLINT
     Span<byte, detail::ExtentAsBytesValue<T, E>::value> {
   return {reinterpret_cast<byte*>(s.data()), s.size_bytes()};
 }
 
 }  // namespace nih
 
-#if defined(_MSC_VER) &&_MSC_VER < 1910
+#if defined(_MSC_VER) && _MSC_VER < 1910
 #undef constexpr
 #pragma pop_macro("constexpr")
 #undef __span_noexcept

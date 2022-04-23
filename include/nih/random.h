@@ -18,10 +18,11 @@
 #ifndef _RANDOME_HH_
 #define _RANDOME_HH_
 
+#include <nih/Logging.h>
+
 #include <cinttypes>
 #include <memory>
 #include <nih/singleton.hh>
-#include <nih/logging.h>
 
 namespace nih {
 
@@ -56,8 +57,11 @@ class SimpleLCG : public RandomDeviceImpl {
   StateType const seed_;
 
  public:
-  SimpleLCG() : state_{default_init_},
-                alpha_{default_alpha_}, mod_{max_value_}, seed_{state_}{}
+  SimpleLCG()
+      : state_{default_init_},
+        alpha_{default_alpha_},
+        mod_{max_value_},
+        seed_{state_} {}
   /*!
    * \brief Initialize SimpleLCG.
    *
@@ -66,22 +70,20 @@ class SimpleLCG : public RandomDeviceImpl {
    * \param alpha  multiplier
    * \param mod    modulo
    */
-  SimpleLCG(StateType state,
-            StateType alpha=default_alpha_, StateType mod=max_value_)
+  SimpleLCG(StateType state, StateType alpha = default_alpha_,
+            StateType mod = max_value_)
       : state_{state == 0 ? default_init_ : state},
-        alpha_{alpha}, mod_{mod} , seed_{state} {}
+        alpha_{alpha},
+        mod_{mod},
+        seed_{state} {}
 
   StateType run() override {
     state_ = (alpha_ * state_) % mod_;
     return state_;
   }
 
-  StateType min() const override {
-    return seed_ * alpha_;
-  }
-  StateType max() const override {
-    return max_value_;
-  }
+  StateType min() const override { return seed_ * alpha_; }
+  StateType max() const override { return max_value_; }
 };
 
 class RandomDevice : public Singleton<RandomDevice> {
@@ -97,7 +99,7 @@ class RandomDevice : public Singleton<RandomDevice> {
 
   void setImpl(std::unique_ptr<RandomDeviceImpl>&& impl) {
     if (_changed) {
-      LOG(WARNING) << "Setting random device more than once";
+      LOG(WARN) << "Setting random device more than once";
     }
     _impl = std::move(impl);
     _changed = true;

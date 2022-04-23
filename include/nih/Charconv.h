@@ -8,16 +8,17 @@
 #ifndef NIH_CHARCONV_H_
 #define NIH_CHARCONV_H_
 
+#include <nih/Intrinsics.h>
+
 #include <cstddef>
-#include <system_error>
 #include <iterator>
 #include <limits>
-#include "./Intrinsics.h"
+#include <system_error>
 
 namespace nih {
 
 struct to_chars_result {  // NOLINT
-  char* ptr;
+  char *ptr;
   std::errc ec;
 };
 
@@ -27,52 +28,54 @@ struct from_chars_result {  // NOLINT
 };
 
 namespace detail {
-int32_t ToCharsFloatImpl(float f, char * const result);
-to_chars_result ToCharsUnsignedImpl(char *first, char *last,
-                                    uint64_t const value);
-from_chars_result FromCharFloatImpl(const char *buffer, const int len,
-                                    float *result);
+int32_t ToCharsFloatImpl(float f, char *const result);
+to_chars_result ToCharsUnsignedImpl(char *first, char *last, uint64_t const value);
+from_chars_result FromCharFloatImpl(const char *buffer, const int len, float *result);
 }  // namespace detail
 
 template <typename T>
 struct NumericLimits;
 
-template <> struct NumericLimits<float> {
+template <>
+struct NumericLimits<float> {
   // Unlike std::numeric_limit<float>::max_digits10, which represents the **minimum**
-  // length of base10 digits that are necessary to uniquely represent all distinct values.
-  // This value is used to represent the maximum length.  As sign bit occupies 1 character:
-  // sign + len(str(2^24)) + decimal point + `E` + sign + len(str(2^8)) + '\0'
+  // length of base10 digits that are necessary to uniquely represent all distinct
+  // values. This value is used to represent the maximum length.  As sign bit occupies 1
+  // character: sign + len(str(2^24)) + decimal point + `E` + sign + len(str(2^8)) +
+  // '\0'
   static constexpr size_t kToCharsSize = 16;
 };
 
-template <> struct NumericLimits<int64_t> {
+template <>
+struct NumericLimits<int64_t> {
   // From llvm libcxx: numeric_limits::digits10 returns value less on 1 than desired for
-  // unsigned numbers.  For example, for 1-byte unsigned value digits10 is 2 (999 can not
-  // be represented), so we need +1 here.
+  // unsigned numbers.  For example, for 1-byte unsigned value digits10 is 2 (999 can
+  // not be represented), so we need +1 here.
   static constexpr size_t kToCharsSize =
       std::numeric_limits<int64_t>::digits10 +
       3;  // +1 for minus, +1 for digits10, +1 for '\0' just to be safe.
 };
 
-inline to_chars_result to_chars(char  *first, char *last, float value) {  // NOLINT
-  if (TS_UNLIKELY(!(static_cast<size_t>(last - first) >= NumericLimits<float>::kToCharsSize))) {
+inline to_chars_result to_chars(char *first, char *last, float value) {  // NOLINT
+  if (NIH_UNLIKELY(
+          !(static_cast<size_t>(last - first) >= NumericLimits<float>::kToCharsSize))) {
     return {first, std::errc::value_too_large};
   }
   auto index = detail::ToCharsFloatImpl(value, first);
   to_chars_result ret;
   ret.ptr = first + index;
 
-  if (TS_LIKELY(ret.ptr < last)) {
+  if (NIH_LIKELY(ret.ptr < last)) {
     ret.ec = std::errc();
   } else {
-    ret.ec =  std::errc::value_too_large;
+    ret.ec = std::errc::value_too_large;
     ret.ptr = last;
   }
   return ret;
 }
 
-inline to_chars_result to_chars(char *first, char *last, int64_t value) { // NOLINT
-  if (TS_UNLIKELY(first == last)) {
+inline to_chars_result to_chars(char *first, char *last, int64_t value) {  // NOLINT
+  if (NIH_UNLIKELY(first == last)) {
     return {first, std::errc::value_too_large};
   }
   // first write '-' and convert to unsigned, then write the rest.
@@ -89,12 +92,12 @@ inline to_chars_result to_chars(char *first, char *last, int64_t value) { // NOL
   return detail::ToCharsUnsignedImpl(first, last, unsigned_value);
 }
 
-inline from_chars_result from_chars(const char *buffer, const char *end, // NOLINT
-                                    float &value) {  // NOLINT
+inline from_chars_result from_chars(const char *buffer, const char *end,  // NOLINT
+                                    float &value) {                       // NOLINT
   from_chars_result res =
       detail::FromCharFloatImpl(buffer, std::distance(buffer, end), &value);
   return res;
 }
 }  // namespace nih
 
-#endif   // NIH_CHARCONV_H_
+#endif  // NIH_CHARCONV_H_

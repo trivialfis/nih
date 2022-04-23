@@ -5,6 +5,7 @@
 #define XGBOOST_JSON_H_
 
 #include <nih/IntrusivePtr.h>
+#include <nih/Logging.h>
 #include <nih/StringRef.h>
 
 #include <functional>

@@ -3,16 +3,18 @@
  */
 #ifndef NIH_JSON_IO_H_
 #define NIH_JSON_IO_H_
+#include <nih/Intrinsics.h>
 #include <nih/StringRef.h>
 #include <nih/json.h>
 
 #include <cinttypes>
+#include <cstring>  // std::memcpy
 #include <limits>
-#include <type_traits>
 #include <map>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -22,15 +24,14 @@ namespace nih {
  * supported.
  */
 class JsonReader {
-protected:
-  size_t constexpr static kMaxNumLength =
-      std::numeric_limits<double>::max_digits10 + 1;
+ protected:
+  size_t constexpr static kMaxNumLength = std::numeric_limits<double>::max_digits10 + 1;
 
   struct SourceLocation {
-  private:
-    size_t pos_{0}; // current position in raw_str_
+   private:
+    size_t pos_{0};  // current position in raw_str_
 
-  public:
+   public:
     SourceLocation() = default;
     size_t Pos() const { return pos_; }
 
@@ -40,11 +41,11 @@ protected:
 
   ConstStringRef raw_str_;
 
-protected:
+ protected:
   void SkipSpaces();
 
   char GetNextChar() {
-    if (NIH_EXPECT((cursor_.Pos() == raw_str_.size()), false)) {
+    if (NIH_UNLIKELY((cursor_.Pos() == raw_str_.size()))) {
       return -1;
     }
     char ch = raw_str_[cursor_.Pos()];
@@ -70,7 +71,7 @@ protected:
    */
   char GetConsecutiveChar(char expected_char) {
     char result = GetNextChar();
-    if (NIH_EXPECT(result != expected_char, false)) {
+    if (NIH_UNLIKELY(result != expected_char)) {
       Expect(expected_char, result);
     }
     return result;
@@ -88,8 +89,7 @@ protected:
     } else if (got == 0) {
       msg += "\\0\"";
     } else {
-      msg += (got <= 127 ? std::string{got} : std::to_string(got)) +
-             " \""; // NOLINT
+      msg += (got <= 127 ? std::string{got} : std::to_string(got)) + " \"";  // NOLINT
     }
     Error(msg);
   }
@@ -103,7 +103,7 @@ protected:
 
   Json Parse();
 
-public:
+ public:
   explicit JsonReader(ConstStringRef str) : raw_str_{str} {}
 
   virtual ~JsonReader() = default;
@@ -112,8 +112,7 @@ public:
 };
 
 class JsonWriter {
-  template <typename T,
-            std::enable_if_t<!std::is_same<Json, T>::value> * = nullptr>
+  template <typename T, std::enable_if_t<!std::is_same<Json, T>::value> * = nullptr>
   void Save(T const &v) {
     this->Save(Json{v});
   }
@@ -132,10 +131,10 @@ class JsonWriter {
     stream_->emplace_back(']');
   }
 
-protected:
+ protected:
   std::vector<char> *stream_;
 
-public:
+ public:
   explicit JsonWriter(std::vector<char> *stream) : stream_{stream} {}
 
   virtual ~JsonWriter() = default;
@@ -156,25 +155,30 @@ public:
 };
 
 #if defined(__GLIBC__)
-template <typename T> T BuiltinBSwap(T v);
+template <typename T>
+T BuiltinBSwap(T v);
 
-template <> inline uint16_t BuiltinBSwap(uint16_t v) {
+template <>
+inline uint16_t BuiltinBSwap(uint16_t v) {
   return __builtin_bswap16(v);
 }
 
-template <> inline uint32_t BuiltinBSwap(uint32_t v) {
+template <>
+inline uint32_t BuiltinBSwap(uint32_t v) {
   return __builtin_bswap32(v);
 }
 
-template <> inline uint64_t BuiltinBSwap(uint64_t v) {
+template <>
+inline uint64_t BuiltinBSwap(uint64_t v) {
   return __builtin_bswap64(v);
 }
 #else
-template <typename T> T BuiltinBSwap(T v) {
+template <typename T>
+T BuiltinBSwap(T v) {
   dmlc::ByteSwap(&v, sizeof(v), 1);
   return v;
 }
-#endif //  defined(__GLIBC__)
+#endif  //  defined(__GLIBC__)
 
 template <typename T, std::enable_if_t<sizeof(T) == 1> * = nullptr>
 inline T ToBigEndian(T v) {
@@ -186,13 +190,12 @@ inline T ToBigEndian(T v) {
   static_assert(std::is_pod<T>::value, "Only pod is supported.");
 #if DMLC_LITTLE_ENDIAN
   auto constexpr kS = sizeof(T);
-  std::conditional_t<kS == 2, uint16_t,
-                     std::conditional_t<kS == 4, uint32_t, uint64_t>>
+  std::conditional_t<kS == 2, uint16_t, std::conditional_t<kS == 4, uint32_t, uint64_t>>
       u;
   std::memcpy(&u, &v, sizeof(u));
   u = BuiltinBSwap(u);
   std::memcpy(&v, &u, sizeof(u));
-#endif // DMLC_LITTLE_ENDIAN
+#endif  // DMLC_LITTLE_ENDIAN
   return v;
 }
 
@@ -202,7 +205,8 @@ inline T ToBigEndian(T v) {
 class UBJReader : public JsonReader {
   Json Parse();
 
-  template <typename T> T ReadStream() {
+  template <typename T>
+  T ReadStream() {
     auto ptr = this->raw_str_.c_str() + cursor_.Pos();
     T v{0};
     std::memcpy(&v, ptr, sizeof(v));
@@ -210,13 +214,15 @@ class UBJReader : public JsonReader {
     return v;
   }
 
-  template <typename T> T ReadPrimitive() {
+  template <typename T>
+  T ReadPrimitive() {
     auto v = ReadStream<T>();
     v = ToBigEndian(v);
     return v;
   }
 
-  template <typename TypedArray> auto ParseTypedArray(int64_t n) {
+  template <typename TypedArray>
+  auto ParseTypedArray(int64_t n) {
     TypedArray results{static_cast<size_t>(n)};
     for (int64_t i = 0; i < n; ++i) {
       auto v = this->ReadPrimitive<typename TypedArray::Type>();
@@ -230,7 +236,7 @@ class UBJReader : public JsonReader {
   Json ParseArray() override;
   Json ParseObject() override;
 
-public:
+ public:
   using JsonReader::JsonReader;
   Json Load() override;
 };
@@ -251,10 +257,10 @@ class UBJWriter : public JsonWriter {
   void Visit(JsonString const *str) override;
   void Visit(JsonBoolean const *boolean) override;
 
-public:
+ public:
   using JsonWriter::JsonWriter;
   void Save(Json json) override;
 };
-} // namespace nih
+}  // namespace nih
 
-#endif // NIH_JSON_IO_H_
+#endif  // NIH_JSON_IO_H_

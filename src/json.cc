@@ -12,9 +12,9 @@
 
 #include "./math.h"
 #include "nih/Charconv.h"
-#include "nih/json_io.h"
-#include "nih/logging.h"
+#include "nih/Logging.h"
 #include "nih/StringRef.h"
+#include "nih/json_io.h"
 
 namespace nih {
 
@@ -68,7 +68,7 @@ void JsonWriter::Visit(JsonInteger const *num) {
   auto ret = to_chars(i2s_buffer_,
                       i2s_buffer_ + NumericLimits<int64_t>::kToCharsSize, i);
   auto end = ret.ptr;
-  NIH_ASSERT(ret.ec == std::errc());
+  NIH_ASSERT_T(ret.ec == std::errc());
   auto digits = std::distance(i2s_buffer_, end);
   auto ori_size = stream_->size();
   stream_->resize(ori_size + digits);
@@ -546,7 +546,7 @@ Json JsonReader::ParseNumber() {
   char const* const beg = p;  // keep track of current pointer
 
   // TODO(trivialfis): Add back all the checks for number
-  if (NIH_EXPECT(*p == 'N', false)) {
+  if (NIH_UNLIKELY(*p == 'N')) {
     GetConsecutiveChar('N');
     GetConsecutiveChar('a');
     GetConsecutiveChar('N');
@@ -570,7 +570,7 @@ Json JsonReader::ParseNumber() {
   }
   }
 
-  if (NIH_EXPECT(*p == 'I', false)) {
+  if (NIH_UNLIKELY(*p == 'I')) {
     cursor_.Forward(std::distance(beg, p));  // +/-
     for (auto i : {'I', 'n', 'f', 'i', 'n', 'i', 't', 'y'}) {
       GetConsecutiveChar(i);
@@ -591,7 +591,7 @@ Json JsonReader::ParseNumber() {
     p++;
   }
 
-  while (NIH_EXPECT(*p >= '0' && *p <= '9', true)) {
+  while (NIH_LIKELY(*p >= '0' && *p <= '9')) {
     i = i * 10 + (*p - '0');
     p++;
   }
@@ -620,7 +620,7 @@ Json JsonReader::ParseNumber() {
       break;
     }
 
-    if (NIH_EXPECT(*p >= '0' && *p <= '9', true)) {
+    if (NIH_LIKELY(*p >= '0' && *p <= '9')) {
       p++;
       while (*p >= '0' && *p <= '9') {
         p++;
@@ -636,7 +636,7 @@ Json JsonReader::ParseNumber() {
   if (is_float) {
     float f;
     auto ret = from_chars(beg, p, f);
-    if (NIH_EXPECT(ret.ec != std::errc(), false)) {
+    if (NIH_UNLIKELY(ret.ec != std::errc())) {
       // Compatible with old format that generates very long mantissa from std stream.
       f = std::strtof(beg, nullptr);
     }
@@ -710,10 +710,10 @@ void Json::Dump(Json json, JsonWriter* writer) {
   writer->Save(json);
 }
 
-static_assert(std::is_nothrow_move_constructible<Json>::value, "");
-static_assert(std::is_nothrow_move_constructible<Object>::value, "");
-static_assert(std::is_nothrow_move_constructible<Array>::value, "");
-static_assert(std::is_nothrow_move_constructible<String>::value, "");
+static_assert(std::is_nothrow_move_constructible<Json>::value);
+static_assert(std::is_nothrow_move_constructible<Object>::value);
+static_assert(std::is_nothrow_move_constructible<Array>::value);
+static_assert(std::is_nothrow_move_constructible<String>::value);
 
 Json UBJReader::ParseArray() {
   auto marker = PeekNextChar();
