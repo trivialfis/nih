@@ -127,5 +127,4 @@ TEST(Logging, If) {
   auto output = capture.getCapturedString();
   ASSERT_NE(output.find("1 < 2"), std::string::npos);
 }
-
 }  // namespace nih

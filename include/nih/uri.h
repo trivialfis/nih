@@ -19,18 +19,14 @@
 #define _URI_HH_
 
 #include <cinttypes>
-#include <string>
 #include <memory>
+#include <string>
 
 namespace nih {
 
 class Uri;
 
-enum class UriErrorCode : uint8_t {
-  kValid = 0,
-  kEmpty = 1,
-  kHost = 2
-};
+enum class UriErrorCode : uint8_t { kValid = 0, kEmpty = 1, kHost = 2 };
 
 class Uri {
   std::string _uri;
@@ -59,15 +55,11 @@ class Uri {
   Uri(Uri const& that) = default;
   Uri(Uri&& that) = default;
 
-  Uri& operator=(Uri const& that);
+  Uri& operator=(Uri const& that) = default;
   Uri& operator=(Uri&& that);
 
-  std::string const& scheme() const {
-    return _scheme_str;
-  }
-  std::string const& host() const {
-    return _host_str;
-  }
+  std::string const& scheme() const { return _scheme_str; }
+  std::string const& host() const { return _host_str; }
 
   bool isValid() { return _is_valid; }
   bool isAbsolute() { return true; }  // FIXME
@@ -77,32 +69,20 @@ class Uri {
 
   bool operator<(Uri const& that) const {
     return compare(*this, that,
-                   [](std::string const& l, std::string const& r){
-                     return l < r;
-                   });
+                   [](std::string const& l, std::string const& r) { return l < r; });
   }
   bool operator<=(Uri const& that) const {
     return compare(*this, that,
-                   [](std::string const& l, std::string const& r){
-                     return l <= r;
-                   });
+                   [](std::string const& l, std::string const& r) { return l <= r; });
   }
-  bool operator>(Uri const& that) const {
-    return !(*this <= that);
-  }
-  bool operator>=(Uri const& that) const {
-    return !(*this < that);
-  }
+  bool operator>(Uri const& that) const { return !(*this <= that); }
+  bool operator>=(Uri const& that) const { return !(*this < that); }
 
   bool operator==(Uri const& that) const {
     return compare(*this, that,
-                   [](std::string const& l, std::string const& r){
-                     return l == r;
-                   });
+                   [](std::string const& l, std::string const& r) { return l == r; });
   }
-  bool operator!=(Uri const& that) const {
-    return !(*this == that);
-  }
+  bool operator!=(Uri const& that) const { return !(*this == that); }
 
   UriErrorCode error() { return _code; }
 };
