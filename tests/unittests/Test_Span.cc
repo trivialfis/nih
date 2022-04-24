@@ -2,7 +2,7 @@
  * Copyright 2018 XGBoost contributors
  */
 #include <gtest/gtest.h>
-#include <nih/span.h>
+#include <nih/Span.h>
 
 #include <vector>
 

@@ -18,11 +18,11 @@
 #ifndef _STRINGS_HH_
 #define _STRINGS_HH_
 
-#include <vector>
-#include <string>
+#include <nih/Span.h>
 
-#include "nih/primitives.hh"
-#include <nih/span.h>
+#include <nih/primitives.hh>
+#include <string>
+#include <vector>
 
 namespace nih {
 
