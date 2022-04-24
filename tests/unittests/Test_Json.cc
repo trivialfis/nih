@@ -8,8 +8,9 @@
 #include <map>
 #include <numeric>  // std::iota
 
-#include "nih/IO.h"
-#include "nih/Logging.h"
+#include <nih/IO.h>
+#include <nih/Logging.h>
+#include <nih/Tempfile.h>
 #include "nih/Json.h"
 #include <nih/JsonIO.h>
 
@@ -423,8 +424,8 @@ TEST(Json, LoadDump) {
   std::string ori_buffer = GetModelStr();
   Json origin{Json::Load(ConstStringRef{ori_buffer.c_str(), ori_buffer.size()})};
 
-  std::string tempdir{"/tmp/"};
-  auto const& path = tempdir + "test_model_dump";
+  TemporaryDirectory tempdir;
+  auto const& path = tempdir.path().c_str() + std::string{"test_model_dump"};
 
   std::string out;
   Json::Dump(origin, &out);
