@@ -1,23 +1,21 @@
-/* This file is part of NIH.
+/*
+ * Copyright 2019-2022 The NIH Authors. All Rights Reserved.
  *
- * Copyright (c) 2019 Jiaming Yuan <jm.yuan@outlook.com>
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this
+ * file except in compliance with the License.  You may obtain a copy of the License at
  *
- * NIH is free software: you can redistribute it and/or modify it under the
- * terms of the Lesser GNU General Public License as published by the Free
- * Software Foundation, either version 3 of the License, or (at your option) any
- * later version.
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * NIH is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE.  See the Lesser GNU General Public License for more
- * details.
+ * Unless required by applicable law or agreed to in writing, software distributed under
+ * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+ * ANY KIND, either express or implied.  See the License for the specific language
+ * governing permissions and limitations under the License.
  *
- * You should have received a copy of the Lesser GNU General Public License
- * along with NIH.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "nih/memory.h"
-#include "nih/strings.hh"
+
+#include "nih/String.h"
 
 namespace nih {
 
@@ -37,55 +35,37 @@ void MemInfo::refresh() {
   std::string line;
   std::vector<std::string> results;
   while (std::getline(fin, line)) {
-    split(line, &results, [](char c){ return c == ':'; });
+    split(line, &results, [](char c) { return c == ':'; });
   }
 
   size_t total = results.size();
   for (size_t i = 0; i < total - 1; i += 2) {
     auto const& name = results.at(i);
-    auto const& str_value = results.at(i+1);
+    auto const& str_value = results.at(i + 1);
     size_t value = str2n<size_t>(str_value);
     _meminfo[name] = value;
   }
 
-  fin.clear();                 // clear fail and eof bits
-  fin.seekg(0, std::ios::beg); // back to the start!
+  fin.clear();                  // clear fail and eof bits
+  fin.seekg(0, std::ios::beg);  // back to the start!
 }
 
-size_t MemInfo::memTotal() {
-  return query("MemTotal");
-}
+size_t MemInfo::memTotal() { return query("MemTotal"); }
 
-size_t MemInfo::memFree() {
-  return query("MemFree");
-}
+size_t MemInfo::memFree() { return query("MemFree"); }
 
-size_t MemInfo::memAvailable() {
-  return query("MemAvailable");
-}
+size_t MemInfo::memAvailable() { return query("MemAvailable"); }
 
-size_t MemInfo::buffers() {
-  return query("Buffers");
-}
+size_t MemInfo::buffers() { return query("Buffers"); }
 
-size_t MemInfo::cached() {
-  return query("Cached");
-}
+size_t MemInfo::cached() { return query("Cached"); }
 
-size_t MemInfo::swapCached() {
-  return query("SwapCached");
-}
+size_t MemInfo::swapCached() { return query("SwapCached"); }
 
-size_t MemInfo::active() {
-  return query("Active");
-}
+size_t MemInfo::active() { return query("Active"); }
 
-size_t MemInfo::inactive() {
-  return query("Inactive");
-}
+size_t MemInfo::inactive() { return query("Inactive"); }
 
-MemInfo::~MemInfo() {
-  fin.close();
-}
+MemInfo::~MemInfo() { fin.close(); }
 
 }  // namespace nih

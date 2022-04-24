@@ -12,8 +12,7 @@
  * governing permissions and limitations under the License.
  *
  */
-#ifndef SUPPORT_IO_H_
-#define SUPPORT_IO_H_
+#pragma once
 
 #include <cstring>
 #include <fstream>
@@ -50,4 +49,3 @@ inline std::string loadSequentialFile(std::string uri) {
   return buffer;
 }
 }  // namespace nih
-#endif

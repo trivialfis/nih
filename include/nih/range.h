@@ -1,63 +1,52 @@
-/* This file is part of NIH.
+/*
+ * Copyright 2019-2022 The NIH Authors. All Rights Reserved.
  *
- * Copyright (c) 2019 Jiaming Yuan <jm.yuan@outlook.com>
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this
+ * file except in compliance with the License.  You may obtain a copy of the License at
  *
- * NIH is free software: you can redistribute it and/or modify it under the
- * terms of the Lesser GNU General Public License as published by the Free
- * Software Foundation, either version 3 of the License, or (at your option) any
- * later version.
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * NIH is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE.  See the Lesser GNU General Public License for more
- * details.
+ * Unless required by applicable law or agreed to in writing, software distributed under
+ * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+ * ANY KIND, either express or implied.  See the License for the specific language
+ * governing permissions and limitations under the License.
  *
- * You should have received a copy of the Lesser GNU General Public License
- * along with NIH.  If not, see <https://www.gnu.org/licenses/>.
  */
 #ifndef _RANGE_HH_
 #define _RANGE_HH_
 
 #include <iterator>
-#include "nih/primitives.hh"
 
 namespace nih {
 
 class Range {
   class RangeIterator {
-    NihInt index_;
-    NihInt step_;
+    std::int64_t _index;
+    std::int64_t _step;
 
    public:
-    using iterator_category = std::bidirectional_iterator_tag;
+    using iterator_category = std::bidirectional_iterator_tag;  // NOLINT
 
    public:
     RangeIterator() = default;
-    RangeIterator(NihInt ind, NihInt step) :
-        index_{ind}, step_{step} {}
+    RangeIterator(std::int64_t ind, std::int64_t step) : _index{ind}, _step{step} {}
     RangeIterator(RangeIterator&& other) = default;
     RangeIterator(RangeIterator const& other) = default;
 
     RangeIterator& operator=(RangeIterator&& other) {
-      index_ = other.index_;
-      step_ = other.step_;
+      std::swap(_index, other._index);
+      std::swap(_step, other._step);
       return *this;
     }
-    RangeIterator& operator=(RangeIterator const& other) {
-      index_ = other.index_;
-      step_ = other.step_;
-      return *this;
-    }
+    RangeIterator& operator=(RangeIterator const& other) = default;
 
-    NihInt operator*() const { return index_; }
+    std::int64_t operator*() const { return _index; }
 
-    bool operator==(RangeIterator const& rhs) const {
-      return index_ == rhs.index_; };
-    bool operator!=(RangeIterator const& rhs) const {
-      return !operator==(rhs); }
+    bool operator==(RangeIterator const& rhs) const { return _index == rhs._index; };
+    bool operator!=(RangeIterator const& rhs) const { return !operator==(rhs); }
 
     RangeIterator& operator++() {
-      index_ += step_;
+      _index += _step;
       return *this;
     }
     RangeIterator operator++(int) {
@@ -66,7 +55,7 @@ class Range {
       return ret;
     }
     RangeIterator& operator--() {
-      index_ -= step_;
+      _index -= _step;
       return *this;
     }
     RangeIterator operator--(int) {
@@ -76,24 +65,23 @@ class Range {
     }
   };
 
-  RangeIterator start_;
-  RangeIterator end_;
+  RangeIterator _start;
+  RangeIterator _end;
 
  public:
-  using iterator = RangeIterator;        // NOLINT
-  using const_iterator = const iterator; // NOLINT
-  using difference_type = NihInt;        // NOLINT
+  using iterator = RangeIterator;         // NOLINT
+  using const_iterator = const iterator;  // NOLINT
+  using difference_type = std::int64_t;   // NOLINT
 
-  Range(NihInt start, NihInt end, NihInt step=1) :
-      start_{start, step}, end_{end, step} {}
-  Range(NihInt end):
-      start_{0, 1}, end_{end, 1} {}
+  Range(std::int64_t start, std::int64_t end, std::int64_t step = 1)
+      : _start{start, step}, _end{end, step} {}
+  explicit Range(std::int64_t end) : _start{0, 1}, _end{end, 1} {}
   ~Range() = default;
 
-  iterator       begin()        { return cbegin(); }
-  iterator       end()          { return cend();   }
-  const_iterator cbegin() const { return start_;   }
-  const_iterator cend()   const { return end_;     }
+  iterator begin() { return cbegin(); }
+  iterator end() { return cend(); }
+  [[nodiscard]] const_iterator cbegin() const { return _start; }
+  [[nodiscard]] const_iterator cend() const { return _end; }
 };
 
 }  // namespace nih

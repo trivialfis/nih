@@ -1,26 +1,26 @@
-/* This file is part of NIH.
+/*
+ * Copyright 2019-2021 The NIH Authors. All Rights Reserved.
  *
- * Copyright (c) 2019 Jiaming Yuan <jm.yuan@outlook.com>
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this
+ * file except in compliance with the License.  You may obtain a copy of the License at
  *
- * NIH is free software: you can redistribute it and/or modify it under the
- * terms of the Lesser GNU General Public License as published by the Free
- * Software Foundation, either version 3 of the License, or (at your option) any
- * later version.
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * NIH is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
- * A PARTICULAR PURPOSE.  See the Lesser GNU General Public License for more
- * details.
+ * Unless required by applicable law or agreed to in writing, software distributed under
+ * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+ * ANY KIND, either express or implied.  See the License for the specific language
+ * governing permissions and limitations under the License.
  *
- * You should have received a copy of the Lesser GNU General Public License
- * along with NIH.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include <unistd.h>
-#include <sys/stat.h>
-#include <numeric>
 #include "nih/path.h"
+
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <numeric>
+
 #include "nih/Logging.h"
-#include "nih/strings.hh"
+#include "nih/String.h"
 
 namespace nih {
 Path Path::join(Path const& lhs, Path const& rhs) {
@@ -72,7 +72,7 @@ Path Path::dirname() const {
     return Path{"."};
   }
 
-  std::string dir_name { (_path.size() > 0 && _path.front() == '/') ? "/" : "" };
+  std::string dir_name{(_path.size() > 0 && _path.front() == '/') ? "/" : ""};
   dir_name = std::accumulate(splited.cbegin(), splited.cend() - 1, dir_name);
   if (dir_name.size() > 1 && dir_name.back() == '/') {
     dir_name = dir_name.substr(0, dir_name.size() - 1);

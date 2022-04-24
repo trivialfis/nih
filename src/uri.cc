@@ -19,9 +19,9 @@
 
 #include <map>
 
-#include "nih/errors.h"
 #include "nih/Logging.h"
-#include "nih/strings.hh"
+#include "nih/String.h"
+#include "nih/errors.h"
 
 namespace nih {
 
