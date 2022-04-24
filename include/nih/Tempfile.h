@@ -21,15 +21,15 @@
 
 namespace nih {
 class TemporaryDirectory {
-  std::string _path;
+  std::filesystem::path _path;
 
  public:
   TemporaryDirectory() {
     std::string path = "/tmp/tmpdir.XXXXXX";
     auto ptr = mkdtemp(path.data());
-    std::string msg;
-    msg.resize(1024);
     if (!ptr) {
+      std::string msg;
+      msg.resize(1024);
       auto ret = strerror_r(errno, msg.data(), msg.size());
       if (ret) {
         LOG(FATAL) << "Failed to create temporary directoroy:" << ret;
@@ -43,13 +43,13 @@ class TemporaryDirectory {
 
   ~TemporaryDirectory() noexcept(false) {
     if (!_path.empty()) {
-      int32_t err = std::remove(_path.c_str());
-      if (err != 0) {
+      bool err = std::filesystem::remove_all(_path);
+      if (!err) {
         LOG(FATAL) << "Failed to remove file:" << _path;
       }
     }
   }
 
-  [[nodiscard]] ConstStringRef path() const { return _path; }
+  [[nodiscard]] auto const& path() const { return _path; }
 };
 }  // namespace nih

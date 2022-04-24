@@ -19,10 +19,10 @@
 
 namespace nih {
 TEST(Tempfile, TemporaryDirectory) {
-  std::string backup;
+  std::filesystem::path backup;
   {
     TemporaryDirectory tmpdir;
-    backup = tmpdir.path().c_str();
+    backup = tmpdir.path();
     ASSERT_TRUE(std::filesystem::exists(backup));
   }
   ASSERT_FALSE(std::filesystem::exists(backup));

@@ -425,7 +425,8 @@ TEST(Json, LoadDump) {
   Json origin{Json::Load(ConstStringRef{ori_buffer.c_str(), ori_buffer.size()})};
 
   TemporaryDirectory tempdir;
-  auto const& path = tempdir.path().c_str() + std::string{"test_model_dump"};
+
+  auto const& path = tempdir.path() / std::string{"test_model_dump"};
 
   std::string out;
   Json::Dump(origin, &out);
