@@ -8,8 +8,8 @@
 #include <map>
 #include <numeric>  // std::iota
 
+#include "nih/IO.h"
 #include "nih/Logging.h"
-#include "nih/file.h"
 #include "nih/json.h"
 #include "nih/json_io.h"
 
@@ -622,7 +622,7 @@ TEST(UBJson, Basic) {
       fout.write(stream.data(), stream.size());
     }
 
-    auto data = loadSequentialFile(Uri{"test.ubj"});
+    auto data = loadSequentialFile("test.ubj");
     UBJReader reader{ConstStringRef{data}};
     json = reader.Load();
     return json;
