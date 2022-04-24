@@ -5,7 +5,7 @@
 #define NIH_JSON_IO_H_
 #include <nih/Intrinsics.h>
 #include <nih/StringRef.h>
-#include <nih/json.h>
+#include <nih/Json.h>
 
 #include <cinttypes>
 #include <cstring>  // std::memcpy

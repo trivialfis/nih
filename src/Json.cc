@@ -1,7 +1,7 @@
 /*!
  * Copyright (c) by Contributors 2019-2022
  */
-#include "nih/json.h"
+#include "nih/Json.h"
 
 #include <cctype>
 #include <cmath>
@@ -12,9 +12,9 @@
 
 #include "./math.h"
 #include "nih/Charconv.h"
+#include "nih/JsonIO.h"
 #include "nih/Logging.h"
 #include "nih/StringRef.h"
-#include "nih/json_io.h"
 
 namespace nih {
 
@@ -44,7 +44,7 @@ void JsonWriter::Visit(JsonObject const* obj) {
     stream_->emplace_back(':');
     this->Save(value.second);
 
-    if (i != size-1) {
+    if (i != size - 1) {
       stream_->emplace_back(',');
     }
     i++;
@@ -62,11 +62,11 @@ void JsonWriter::Visit(JsonNumber const* num) {
   std::memcpy(stream_->data() + ori_size, number, end - number);
 }
 
-void JsonWriter::Visit(JsonInteger const *num) {
+void JsonWriter::Visit(JsonInteger const* num) {
   char i2s_buffer_[NumericLimits<int64_t>::kToCharsSize];
   auto i = num->GetInteger();
-  auto ret = to_chars(i2s_buffer_,
-                      i2s_buffer_ + NumericLimits<int64_t>::kToCharsSize, i);
+  auto ret =
+      to_chars(i2s_buffer_, i2s_buffer_ + NumericLimits<int64_t>::kToCharsSize, i);
   auto end = ret.ptr;
   NIH_ASSERT_T(ret.ec == std::errc());
   auto digits = std::distance(i2s_buffer_, end);
@@ -75,14 +75,14 @@ void JsonWriter::Visit(JsonInteger const *num) {
   std::memcpy(stream_->data() + ori_size, i2s_buffer_, digits);
 }
 
-void JsonWriter::Visit(JsonNull const* ) {
-    auto s = stream_->size();
-    stream_->resize(s + 4);
-    auto& buf = (*stream_);
-    buf[s + 0] = 'n';
-    buf[s + 1] = 'u';
-    buf[s + 2] = 'l';
-    buf[s + 3] = 'l';
+void JsonWriter::Visit(JsonNull const*) {
+  auto s = stream_->size();
+  stream_->resize(s + 4);
+  auto& buf = (*stream_);
+  buf[s + 0] = 'n';
+  buf[s + 1] = 'u';
+  buf[s + 2] = 'l';
+  buf[s + 3] = 'l';
 }
 
 void JsonWriter::Visit(JsonString const* str) {
@@ -92,7 +92,7 @@ void JsonWriter::Visit(JsonString const* str) {
   for (size_t i = 0; i < string.length(); i++) {
     const char ch = string[i];
     if (ch == '\\') {
-      if (i < string.size() && string[i+1] == 'u') {
+      if (i < string.size() && string[i + 1] == 'u') {
         buffer += "\\";
       } else {
         buffer += "\\\\";
@@ -198,7 +198,8 @@ JsonObject::JsonObject(JsonObject&& that) noexcept : Value(ValueKind::kObject) {
 }
 
 JsonObject::JsonObject(std::map<std::string, Json>&& object) noexcept
-    : Value(ValueKind::kObject), object_{std::forward<std::map<std::string, Json>>(object)} {}
+    : Value(ValueKind::kObject),
+      object_{std::forward<std::map<std::string, Json>>(object)} {}
 
 bool JsonObject::operator==(Value const& rhs) const {
   if (!IsA<JsonObject>(&rhs)) {
@@ -211,7 +212,9 @@ void JsonObject::Save(JsonWriter* writer) const { writer->Visit(this); }
 
 // Json String
 bool JsonString::operator==(Value const& rhs) const {
-  if (!IsA<JsonString>(&rhs)) { return false; }
+  if (!IsA<JsonString>(&rhs)) {
+    return false;
+  }
   return Cast<JsonString const>(&rhs)->GetString() == str_;
 }
 
@@ -289,7 +292,9 @@ template class JsonTypedArray<int64_t, Value::ValueKind::kI64Array>;
 
 // Json Number
 bool JsonNumber::operator==(Value const& rhs) const {
-  if (!IsA<JsonNumber>(&rhs)) { return false; }
+  if (!IsA<JsonNumber>(&rhs)) {
+    return false;
+  }
   auto r_num = Cast<JsonNumber const>(&rhs)->GetNumber();
   if (std::isinf(number_)) {
     return std::isinf(r_num);
@@ -304,7 +309,9 @@ void JsonNumber::Save(JsonWriter* writer) const { writer->Visit(this); }
 
 // Json Integer
 bool JsonInteger::operator==(Value const& rhs) const {
-  if (!IsA<JsonInteger>(&rhs)) { return false; }
+  if (!IsA<JsonInteger>(&rhs)) {
+    return false;
+  }
   return integer_ == Cast<JsonInteger const>(&rhs)->GetInteger();
 }
 
@@ -312,7 +319,9 @@ void JsonInteger::Save(JsonWriter* writer) const { writer->Visit(this); }
 
 // Json Null
 bool JsonNull::operator==(Value const& rhs) const {
-  if (!IsA<JsonNull>(&rhs)) { return false; }
+  if (!IsA<JsonNull>(&rhs)) {
+    return false;
+  }
   return true;
 }
 
@@ -320,7 +329,9 @@ void JsonNull::Save(JsonWriter* writer) const { writer->Visit(this); }
 
 // Json Boolean
 bool JsonBoolean::operator==(Value const& rhs) const {
-  if (!IsA<JsonBoolean>(&rhs)) { return false; }
+  if (!IsA<JsonBoolean>(&rhs)) {
+    return false;
+  }
   return boolean_ == Cast<JsonBoolean const>(&rhs)->GetBoolean();
 }
 
@@ -332,19 +343,21 @@ Json JsonReader::Parse() {
   while (true) {
     SkipSpaces();
     char c = PeekNextChar();
-    if (c == -1) { break; }
+    if (c == -1) {
+      break;
+    }
 
     if (c == '{') {
       return ParseObject();
-    } else if ( c == '[' ) {
+    } else if (c == '[') {
       return ParseArray();
-    } else if ( c == '-' || std::isdigit(c) ||
-                c == 'N' || c == 'I') {
-      // For now we only accept `NaN`, not `nan` as the later violates LR(1) with `null`.
+    } else if (c == '-' || std::isdigit(c) || c == 'N' || c == 'I') {
+      // For now we only accept `NaN`, not `nan` as the later violates LR(1) with
+      // `null`.
       return ParseNumber();
-    } else if ( c == '\"' ) {
+    } else if (c == '\"') {
       return ParseString();
-    } else if ( c == 't' || c == 'f' ) {
+    } else if (c == 't' || c == 'f') {
       return ParseBoolean();
     } else if (c == 'n') {
       return ParseNull();
@@ -373,10 +386,11 @@ void JsonReader::Error(std::string msg) const {
   }
 
   constexpr size_t kExtend = 8;
-  auto beg = static_cast<int64_t>(cursor_.Pos()) -
-             static_cast<int64_t>(kExtend) < 0 ? 0 : cursor_.Pos() - kExtend;
-  auto end = cursor_.Pos() + kExtend >= raw_str_.size() ?
-             raw_str_.size() : cursor_.Pos() + kExtend;
+  auto beg = static_cast<int64_t>(cursor_.Pos()) - static_cast<int64_t>(kExtend) < 0
+                 ? 0
+                 : cursor_.Pos() - kExtend;
+  auto end = cursor_.Pos() + kExtend >= raw_str_.size() ? raw_str_.size()
+                                                        : cursor_.Pos() + kExtend;
 
   auto raw_portion = raw_str_.substr(beg, end - beg);
   std::string portion;
@@ -424,7 +438,7 @@ void JsonReader::SkipSpaces() {
 void ParseStr(std::string const& str) {
   size_t end = 0;
   for (size_t i = 0; i < str.size(); ++i) {
-    if (str[i] == '"' && i > 0 && str[i-1] != '\\') {
+    if (str[i] == '"' && i > 0 && str[i - 1] != '\\') {
       end = i;
       break;
     }
@@ -434,7 +448,7 @@ void ParseStr(std::string const& str) {
 }
 
 Json JsonReader::ParseString() {
-  char ch { GetConsecutiveChar('\"') };  // NOLINT
+  char ch{GetConsecutiveChar('\"')};  // NOLINT
   std::ostringstream output;
   std::string str;
   while (true) {
@@ -442,16 +456,27 @@ Json JsonReader::ParseString() {
     if (ch == '\\') {
       char next = static_cast<char>(GetNextChar());
       switch (next) {
-        case 'r':  str += u8"\r"; break;
-        case 'n':  str += u8"\n"; break;
-        case '\\': str += u8"\\"; break;
-        case 't':  str += u8"\t"; break;
-        case '\"': str += u8"\""; break;
+        case 'r':
+          str += u8"\r";
+          break;
+        case 'n':
+          str += u8"\n";
+          break;
+        case '\\':
+          str += u8"\\";
+          break;
+        case 't':
+          str += u8"\t";
+          break;
+        case '\"':
+          str += u8"\"";
+          break;
         case 'u':
           str += ch;
           str += 'u';
           break;
-        default: Error("Unknown escape");
+        default:
+          Error("Unknown escape");
       }
     } else {
       if (ch == '\"') break;
@@ -479,7 +504,7 @@ Json JsonReader::ParseNull() {
 Json JsonReader::ParseArray() {
   std::vector<Json> data;
 
-  char ch { GetConsecutiveChar('[') };  // NOLINT
+  char ch{GetConsecutiveChar('[')};  // NOLINT
   while (true) {
     if (PeekNextChar() == ']') {
       GetConsecutiveChar(']');
@@ -525,7 +550,7 @@ Json JsonReader::ParseObject() {
       Expect(':', ch);
     }
 
-    Json value { Parse() };
+    Json value{Parse()};
 
     data[get<String>(key)] = std::move(value);
 
@@ -555,19 +580,19 @@ Json JsonReader::ParseNumber() {
 
   bool negative = false;
   switch (*p) {
-  case '-': {
-    negative = true;
-    ++p;
-    break;
-  }
-  case '+': {
-    negative = false;
-    ++p;
-    break;
-  }
-  default: {
-    break;
-  }
+    case '-': {
+      negative = true;
+      ++p;
+      break;
+    }
+    case '+': {
+      negative = false;
+      ++p;
+      break;
+    }
+    default: {
+      break;
+    }
   }
 
   if (NIH_UNLIKELY(*p == 'I')) {
@@ -611,13 +636,13 @@ Json JsonReader::ParseNumber() {
     p++;
 
     switch (*p) {
-    case '-':
-    case '+': {
-      p++;
-      break;
-    }
-    default:
-      break;
+      case '-':
+      case '+': {
+        p++;
+        break;
+      }
+      default:
+        break;
     }
 
     if (NIH_LIKELY(*p >= '0' && *p <= '9')) {
@@ -706,9 +731,7 @@ void Json::Dump(Json json, std::vector<char>* str, std::ios::openmode mode) {
   }
 }
 
-void Json::Dump(Json json, JsonWriter* writer) {
-  writer->Save(json);
-}
+void Json::Dump(Json json, JsonWriter* writer) { writer->Save(json); }
 
 static_assert(std::is_nothrow_move_constructible<Json>::value);
 static_assert(std::is_nothrow_move_constructible<Object>::value);
@@ -737,7 +760,8 @@ Json UBJReader::ParseArray() {
       case 'L':
         return ParseTypedArray<I64Array>(n);
       default:
-        LOG(FATAL) << "`" + std::string{type} + "` is not supported for typed array.";  // NOLINT
+        LOG(FATAL) << "`" + std::string{type} +
+                          "` is not supported for typed array.";  // NOLINT
     }
   }
   std::vector<Json> results;
@@ -951,13 +975,16 @@ void UBJWriter::Visit(JsonNumber const* num) {
 
 void UBJWriter::Visit(JsonInteger const* num) {
   auto i = num->GetInteger();
-  if (i > std::numeric_limits<int8_t>::min() && i < std::numeric_limits<int8_t>::max()) {
+  if (i > std::numeric_limits<int8_t>::min() &&
+      i < std::numeric_limits<int8_t>::max()) {
     stream_->push_back('i');
     WritePrimitive(static_cast<int8_t>(i), stream_);
-  } else if (i > std::numeric_limits<int16_t>::min() && i < std::numeric_limits<int16_t>::max()) {
+  } else if (i > std::numeric_limits<int16_t>::min() &&
+             i < std::numeric_limits<int16_t>::max()) {
     stream_->push_back('I');
     WritePrimitive(static_cast<int16_t>(i), stream_);
-  } else if (i > std::numeric_limits<int32_t>::min() && i < std::numeric_limits<int32_t>::max()) {
+  } else if (i > std::numeric_limits<int32_t>::min() &&
+             i < std::numeric_limits<int32_t>::max()) {
     stream_->push_back('l');
     WritePrimitive(static_cast<int32_t>(i), stream_);
   } else {

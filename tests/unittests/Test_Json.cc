@@ -10,8 +10,8 @@
 
 #include "nih/IO.h"
 #include "nih/Logging.h"
-#include "nih/json.h"
-#include "nih/json_io.h"
+#include "nih/Json.h"
+#include <nih/JsonIO.h>
 
 namespace nih {
 namespace {
