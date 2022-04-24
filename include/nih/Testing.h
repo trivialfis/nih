@@ -1,13 +1,30 @@
+/*
+ * Copyright 2021 The Nih Authors. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License.  You may obtain a copy
+ * of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ *
+ */
+#pragma once
 #include <sys/types.h>
-#include <unistd.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
-#include <string>
-#include <vector>
-#include <system_error>
 #include <cmath>
+#include <string>
+#include <system_error>
+#include <vector>
 
-namespace tungsten {
+namespace nih {
 class Pipe {
   int _pfd[2];
   std::error_code _s;
@@ -21,11 +38,12 @@ class Pipe {
       bytes = read(_pfd[0], &c, 1);
       buffer->push_back(c);
       i++;
-    } while(bytes > 0) ;
+    } while (bytes > 0);
     return std::make_error_code(std::errc());
   }
 
-  int execvp_wrapper(std::string const& command, std::vector<std::string> const& argvs) {
+  int execvp_wrapper(std::string const& command,
+                     std::vector<std::string> const& argvs) {
     std::vector<char const*> c_argvs;
     c_argvs.push_back(command.c_str());
     for (auto const& v : argvs) {
@@ -35,36 +53,33 @@ class Pipe {
     int s = execvp(command.c_str(), const_cast<char**>(c_argvs.data()));
     return s;
   }
-  int execvpe_wrapper(std::string const& command,
-                      std::vector<std::string> const& argvs,
+  int execvpe_wrapper(std::string const& command, std::vector<std::string> const& argvs,
                       std::vector<std::string> const& envs) {
     std::vector<char const*> c_argvs;
     for (auto const& v : argvs) {
       c_argvs.push_back(v.c_str());
     }
     c_argvs.push_back(nullptr);
-    std::vector<char const*> c_envs (envs.size());
+    std::vector<char const*> c_envs(envs.size());
     for (auto const& v : envs) {
       c_envs.push_back(v.c_str());
     }
-    int s = execvpe(command.c_str(),
-                    const_cast<char**>(c_argvs.data()),
+    int s = execvpe(command.c_str(), const_cast<char**>(c_argvs.data()),
                     const_cast<char**>(c_envs.data()));
     return s;
   }
 
  public:
-  explicit operator bool() const {
-    return bool(_s);
-  }
+  explicit operator bool() const { return bool(_s); }
   std::string const& getBuffer() { return _buffer; }
 
-  Pipe() : _s{std::error_code()}{
+  Pipe() : _s{std::error_code()} {
     if (pipe(_pfd) < 0) {
       _s = std::error_code(errno, std::system_category());
     }
   }
-  std::error_code call(std::string const& command, std::vector<std::string> const& argvs, bool blocking=true) {
+  std::error_code call(std::string const& command,
+                       std::vector<std::string> const& argvs, bool blocking = true) {
     pid_t pid = fork();
     if (pid < 0) {
       return {errno, std::system_category()};
@@ -78,7 +93,7 @@ class Pipe {
     } else {
       close(_pfd[1]);
       auto s = readChild(&_buffer);
-      int e {0};
+      int e{0};
       if (blocking) {
         waitpid(pid, &e, 0);
       }
@@ -109,14 +124,12 @@ class SimpleLCG {
   StateType seed_;
 
  public:
-  SimpleLCG() : state_{kDefaultInit},
-                alpha_{default_alpha_}, mod_{max_value_}, seed_{state_}{}
+  SimpleLCG()
+      : state_{kDefaultInit}, alpha_{default_alpha_}, mod_{max_value_}, seed_{state_} {}
   SimpleLCG(SimpleLCG const& that) = default;
   SimpleLCG(SimpleLCG&& that) = default;
 
-  void Seed(StateType seed) {
-    seed_ = seed;
-  }
+  void Seed(StateType seed) { seed_ = seed; }
   /*!
    * \brief Initialize SimpleLCG.
    *
@@ -125,10 +138,12 @@ class SimpleLCG {
    * \param alpha  multiplier
    * \param mod    modulo
    */
-  explicit SimpleLCG(StateType state,
-                     StateType alpha=default_alpha_, StateType mod=max_value_)
+  explicit SimpleLCG(StateType state, StateType alpha = default_alpha_,
+                     StateType mod = max_value_)
       : state_{state == 0 ? kDefaultInit : state},
-        alpha_{alpha}, mod_{mod} , seed_{state} {}
+        alpha_{alpha},
+        mod_{mod},
+        seed_{state} {}
 
   StateType operator()() {
     state_ = (alpha_ * state_) % mod_;
@@ -149,8 +164,9 @@ class SimpleRealUniformDistribution {
   ResultT GenerateCanonical(GeneratorT* rng) const {
     static_assert(std::is_floating_point<ResultT>::value,
                   "Result type must be floating point.");
-    long double const r = (static_cast<long double>(rng->Max())
-                           - static_cast<long double>(rng->Min())) + 1.0L;
+    long double const r =
+        (static_cast<long double>(rng->Max()) - static_cast<long double>(rng->Min())) +
+        1.0L;
     auto const log2r = static_cast<size_t>(std::log(r) / std::log(2.0L));
     size_t m = std::max<size_t>(1UL, (Bits + log2r - 1UL) / log2r);
     ResultT sum_value = 0, r_k = 1;
@@ -165,13 +181,12 @@ class SimpleRealUniformDistribution {
   }
 
  public:
-  SimpleRealUniformDistribution(ResultT l, ResultT u) :
-      lower_{l}, upper_{u} {}
+  SimpleRealUniformDistribution(ResultT l, ResultT u) : lower_{l}, upper_{u} {}
 
   template <typename GeneratorT>
   ResultT operator()(GeneratorT* rng) const {
-    ResultT tmp = GenerateCanonical<std::numeric_limits<ResultT>::digits,
-                                    GeneratorT>(rng);
+    ResultT tmp =
+        GenerateCanonical<std::numeric_limits<ResultT>::digits, GeneratorT>(rng);
     auto ret = (tmp * (upper_ - lower_)) + lower_;
     // Correct floating point error.
     return std::max(ret, lower_);
@@ -179,4 +194,4 @@ class SimpleRealUniformDistribution {
 };
 
 constexpr float kRtEps = 1e-6;
-}  // namespace tungsten
+}  // namespace nih
