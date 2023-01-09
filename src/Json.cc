@@ -1,5 +1,5 @@
 /*!
- * Copyright (c) by Contributors 2019-2022
+ * Copyright (c) by Contributors 2019-2023
  */
 #include "nih/Json.h"
 
@@ -12,6 +12,7 @@
 
 #include "./math.h"
 #include "nih/Charconv.h"
+#include "nih/Intrinsics.h"
 #include "nih/JsonIO.h"
 #include "nih/Logging.h"
 #include "nih/StringRef.h"
@@ -197,9 +198,8 @@ JsonObject::JsonObject(JsonObject&& that) noexcept : Value(ValueKind::kObject) {
   std::swap(that.object_, this->object_);
 }
 
-JsonObject::JsonObject(std::map<std::string, Json>&& object) noexcept
-    : Value(ValueKind::kObject),
-      object_{std::forward<std::map<std::string, Json>>(object)} {}
+JsonObject::JsonObject(Map&& object) noexcept
+    : Value(ValueKind::kObject), object_{std::forward<Map>(object)} {}
 
 bool JsonObject::operator==(Value const& rhs) const {
   if (!IsA<JsonObject>(&rhs)) {
@@ -247,7 +247,7 @@ std::enable_if_t<std::is_floating_point<T>::value, bool> IsInfMSVCWar(T v) {
   return std::isinf(v);
 }
 template <typename T>
-std::enable_if_t<std::is_integral<T>::value, bool> IsInfMSVCWar(T v) {
+std::enable_if_t<std::is_integral<T>::value, bool> IsInfMSVCWar(T) {
   return false;
 }
 }  // namespace
@@ -449,7 +449,6 @@ void ParseStr(std::string const& str) {
 
 Json JsonReader::ParseString() {
   char ch{GetConsecutiveChar('\"')};  // NOLINT
-  std::ostringstream output;
   std::string str;
   while (true) {
     ch = GetNextChar();
@@ -525,7 +524,7 @@ Json JsonReader::ParseArray() {
 Json JsonReader::ParseObject() {
   GetConsecutiveChar('{');
 
-  std::map<std::string, Json> data;
+  Object::Map data;
   SkipSpaces();
   char ch = PeekNextChar();
 
@@ -679,7 +678,6 @@ Json JsonReader::ParseBoolean() {
   char ch = GetNextNonSpaceChar();
   std::string const t_value = u8"true";
   std::string const f_value = u8"false";
-  std::string buffer;
 
   if (ch == 't') {
     GetConsecutiveChar('r');
@@ -799,7 +797,7 @@ std::string UBJReader::DecodeStr() {
 
 Json UBJReader::ParseObject() {
   auto marker = PeekNextChar();
-  std::map<std::string, Json> results;
+  Object::Map results;
 
   while (marker != '}') {
     auto str = this->DecodeStr();
@@ -872,9 +870,11 @@ Json UBJReader::Parse() {
       }
       case 'D': {
         LOG(FATAL) << "f64 is not supported.";
+        break;
       }
       case 'H': {
         LOG(FATAL) << "High precision number is not supported.";
+        break;
       }
       default:
         Error("Unknown construct");
@@ -993,7 +993,7 @@ void UBJWriter::Visit(JsonInteger const* num) {
   }
 }
 
-void UBJWriter::Visit(JsonNull const* null) { stream_->push_back('Z'); }
+void UBJWriter::Visit(JsonNull const*) { stream_->push_back('Z'); }
 
 void UBJWriter::Visit(JsonString const* str) {
   stream_->push_back('S');

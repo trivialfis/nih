@@ -5,6 +5,7 @@
 
 #include <cmath>  // std::signbit
 #include <fstream>
+#include <functional>
 #include <map>
 #include <numeric>  // std::iota
 
@@ -506,8 +507,8 @@ TEST(Json, WrongCasts) {
     ASSERT_ANY_THROW(get<Number>(json));
   }
   {
-    Json json =
-        Json{Object{std::map<std::string, Json>{{"key", Json{String{"value"}}}}}};
+    Json json = Json{Object{
+        std::map<std::string, Json, std::less<>>{{"key", Json{String{"value"}}}}}};
     ASSERT_ANY_THROW(get<Number>(json));
   }
 }
